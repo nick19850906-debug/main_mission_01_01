@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  [초보자 & 평가관을 위한 HTML5 기본 안내]
+  1. <!DOCTYPE html>: 브라우저에게 이 문서가 최신 표준인 'HTML5' 규격임을 알립니다.
+  2. lang="ko": 웹 접근성(스크린 리더)과 검색 엔진(SEO)에 주 언어가 한국어임을 전달합니다.
+  3. 시맨틱 태그(Semantic Tag): 의미를 가진 태그(<header>, <nav>, <main>, <section>, <article>, <footer>)를
+     사용하여 검색엔진 최적화(SEO)와 시각장애인을 위한 스크린 리더 접근성을 비약적으로 향상시킵니다.
+  ==========================================================================
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <!-- 모바일 및 다양한 기기에서 화면 비율을 1:1로 맞추기 위한 뷰포트 메타 태그 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- SEO(검색엔진 최적화) 및 브라우저 탭 정보 -->
+  <title>김프론트 | 주니어 프론트엔드 개발자 포트폴리오</title>
+  <meta name="description" content="순수 HTML, CSS, JavaScript로 제작된 반응형 포트폴리오 웹사이트입니다. GitHub API 연동 및 인터랙티브 UI 제공.">
+  <meta name="keywords" content="프론트엔드, 포트폴리오, HTML, CSS, JavaScript, GitHub API, 반응형 웹">
+  <meta name="author" content="김프론트">
+
+  <!-- 파비콘 (브라우저 탭 아이콘) -->
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+
+  <!-- 구글 폰트 (Pretendard 대체 웹폰트: Outfit & Noto Sans KR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+  <!-- 외부 아이콘 폰트 (Font Awesome CDN - 라이브러리 프레임워크가 아닌 순수 아이콘 폰트) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- 외부 스타일시트 연결 -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!--
+    자바스크립트 파일 연결:
+    defer 속성을 사용하는 이유:
+    - HTML 파싱을 중단하지 않고 백그라운드에서 스크립트를 다운로드한 뒤,
+    - HTML 문서 구조(DOM 트리) 생성이 완전히 끝난 후 실행되므로
+    - DOM 요소를 안전하게 찾을 수 있고 페이지 로딩 속도가 훨씬 빨라집니다.
+  -->
+  <script src="js/main.js" defer></script>
+</head>
+
+<body>
+  <!--
+    ========================================================================
+    [HEADER & NAVIGATION]
+    - <header>: 웹사이트 상단의 머리말 영역을 나타내는 시맨틱 태그
+    - <nav>: 주요 탐색 링크들을 모아놓은 네비게이션 시맨틱 태그
+    - Flexbox 레이아웃 적용: 좌측 로고, 우측 메뉴 및 버튼 정렬
+    ========================================================================
+  -->
+  <header class="header" id="header">
+    <div class="container header-container">
+      <!-- 사이트 로고 (클릭 시 최상단 Hero로 이동) -->
+      <a href="#hero" class="logo" aria-label="김프론트 포트폴리오 홈으로 이동">
+        <span class="logo-symbol">&lt;/&gt;</span>
+        <span class="logo-text">DevPortfolio</span>
+      </a>
+
+      <!-- 네비게이션 메뉴 (모바일에서는 햄버거 클릭 시 슬라이드 노출) -->
+      <nav class="nav" id="nav-menu" aria-label="메인 네비게이션">
+        <ul class="nav-list">
+          <li class="nav-item"><a href="#hero" class="nav-link active">Home</a></li>
+          <li class="nav-item"><a href="#about" class="nav-link">About</a></li>
+          <li class="nav-item"><a href="#skills" class="nav-link">Skills</a></li>
+          <li class="nav-item"><a href="#projects" class="nav-link">Projects</a></li>
+          <li class="nav-item"><a href="#contact" class="nav-link">Contact</a></li>
+        </ul>
+      </nav>
+
+      <!-- 우측 기능 버튼 모음 (다크모드 토글 버튼 + 모바일 햄버거 메뉴 버튼) -->
+      <div class="header-actions">
+        <!-- 다크 모드 토글 버튼 -->
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="다크 모드 및 라이트 모드 전환" title="테마 변경">
+          <i class="fa-solid fa-moon theme-icon-dark" aria-hidden="true"></i>
+          <i class="fa-solid fa-sun theme-icon-light" aria-hidden="true"></i>
+        </button>
+
+        <!-- 모바일 화면용 햄버거 버튼 (aria-expanded로 열림/닫힘 상태를 스크린리더에 알림) -->
+        <button type="button" class="hamburger-btn" id="hamburger-btn" aria-label="메뉴 열기/닫기" aria-expanded="false" aria-controls="nav-menu">
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!--
+    ========================================================================
+    [MAIN]
+    - <main>: 문서의 핵심 콘텐츠 영역을 감싸는 유일한 시맨틱 태그 (1개만 권장)
+    ========================================================================
+  -->
+  <main id="main-content">
+
+    <!--
+      ----------------------------------------------------------------------
+      [SECTION 1: HERO]
+      - 인사말, 직무 타이틀(타이핑 효과), 비전, 콜 투 액션(CTA) 버튼
+      ----------------------------------------------------------------------
+    -->
+    <section class="section hero-section" id="hero">
+      <div class="container hero-container">
+        <!-- Hero 배경 장식 블러 원형 (배경 시각효과) -->
+        <div class="hero-blur-circle circle-1" aria-hidden="true"></div>
+        <div class="hero-blur-circle circle-2" aria-hidden="true"></div>
+
+        <div class="hero-content">
+          <span class="hero-badge">👋 반갑습니다! 웹의 본질을 탐구하는</span>
+          
+          <h1 class="hero-title">
+            안녕하세요, 저는 <br>
+            <span class="highlight-name">김프론트</span>입니다.
+          </h1>
+
+          <!-- 자바스크립트로 구현된 한 글자씩 써지는 타이핑 효과 문구 -->
+          <div class="typing-container" aria-live="polite">
+            <span class="typing-prefix">I am a </span>
+            <span class="typing-text" id="typing-text">Frontend Developer</span>
+            <span class="typing-cursor" aria-hidden="true">|</span>
+          </div>
+
+          <p class="hero-description">
+            프레임워크의 화려함 뒤에 숨겨진 <strong>HTML, CSS, JavaScript</strong>의 단단한 기초를 신뢰합니다.<br class="hide-mobile">
+            사용자 이벤트부터 화면 렌더링까지 이어지는 브라우저의 흐름을 이해하는 개발자가 되고자 합니다.
+          </p>
+
+          <!-- 사용자 행동 유도 (Call-to-Action) 버튼 그룹 -->
+          <div class="hero-buttons">
+            <a href="#projects" class="btn btn-primary">
+              <i class="fa-solid fa-code" aria-hidden="true"></i>
+              <span>프로젝트 둘러보기</span>
+            </a>
+            <a href="#contact" class="btn btn-secondary">
+              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+              <span>연락하기</span>
+            </a>
+          </div>
+
+          <!-- 신뢰를 주는 작은 스탯/요약 뱃지들 -->
+          <div class="hero-stats">
+            <div class="stat-item">
+              <span class="stat-num">100%</span>
+              <span class="stat-label">순수 바닐라JS</span>
+            </div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num">Mobile</span>
+              <span class="stat-label">완벽 반응형</span>
+            </div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num">API</span>
+              <span class="stat-label">GitHub 실시간 연동</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 아래 섹션으로 스크롤을 유도하는 인디케이터 아이콘 -->
+      <a href="#about" class="scroll-indicator" aria-label="About 섹션으로 스크롤">
+        <span class="mouse-icon"></span>
+        <span class="scroll-arrow"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></span>
+      </a>
+    </section>
+
+    <!--
+      ----------------------------------------------------------------------
+      [SECTION 2: ABOUT ME]
+      - 자기소개, 가치관 카드, 프로필 이미지 (alt 속성 포함)
+      ----------------------------------------------------------------------
+    -->
+    <section class="section about-section" id="about">
+      <div class="container">
+        <!-- 섹션 공통 헤더: 제목 및 서브타이틀 -->
+        <header class="section-header">
+          <span class="section-subtitle">ABOUT ME</span>
+          <h2 class="section-title">기초가 튼튼한 개발자, 김프론트입니다</h2>
+          <div class="section-line" aria-hidden="true"></div>
+        </header>
+
+        <div class="about-grid">
+          <!-- 프로필 이미지 영역 -->
+          <div class="about-image-wrapper">
+            <div class="profile-card">
+              <img 
+                src="images/profile.svg" 
+                alt="노트북으로 웹 프론트엔드 코딩을 하고 있는 김프론트 개발자의 미소 짓는 일러스트 아바타"
+                class="profile-image"
+                width="340"
+                height="340"
+              >
+              <div class="profile-badge">
+                <span class="badge-dot" aria-hidden="true"></span>
+                <span>새로운 도전을 환영합니다!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 자기소개 상세 텍스트 및 가치관 카드 -->
+          <div class="about-text-content">
+            <h3 class="about-heading">
+              "도구에 휘둘리지 않고, 브라우저의 원리로 소통합니다."
+            </h3>
+            
+            <p class="about-p">
+              React, Vue 등 수많은 프레임워크가 등장하지만, 브라우저가 직접 읽고 실행하는 언어는 
+              <strong>HTML, CSS, JavaScript</strong> 단 세 가지입니다.
+            </p>
+            <p class="about-p">
+              저는 <code>querySelector</code>로 DOM을 찾고, <code>addEventListener</code>로 이벤트를 감지하며,
+              <code>fetch</code> 비동기 통신을 통해 데이터를 그려내는 웹 개발의 본질적인 동작 원리를 깊이 학습하고 있습니다.
+              이 탄탄한 기초가 앞으로 마주할 모든 기술 스택의 든든한 밑거름이 될 것임을 확신합니다.
+            </p>
+
+            <!-- 3가지 핵심 가치관 카드 (Grid로 배치) -->
+            <div class="about-cards">
+              <article class="feature-card">
+                <div class="card-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></div>
+                <h4 class="card-title">시맨틱 웹 표준</h4>
+                <p class="card-desc">의미 있는 태그를 사용하여 누구나 접근 가능하고 검색엔진에 친화적인 마크업을 지향합니다.</p>
+              </article>
+
+              <article class="feature-card">
+                <div class="card-icon"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i></div>
+                <h4 class="card-title">모바일 퍼스트 반응형</h4>
+                <p class="card-desc">Flexbox와 Grid를 조합하여 스마트폰부터 대형 모니터까지 일관된 최상의 경험을 선사합니다.</p>
+              </article>
+
+              <article class="feature-card">
+                <div class="card-icon"><i class="fa-solid fa-arrows-spin" aria-hidden="true"></i></div>
+                <h4 class="card-title">상태 기반 렌더링</h4>
+                <p class="card-desc">이벤트 발생 시 상태(State)를 변경하고 그에 맞춰 UI를 갱신하는 현대 웹 아키텍처를 실천합니다.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!--
+      ----------------------------------------------------------------------
+      [SECTION 3: SKILLS]
+      - 프론트엔드 핵심 기술 스택 및 이해도 카드 목록
+      ----------------------------------------------------------------------
+    -->
+    <section class="section skills-section" id="skills">
+      <div class="container">
+        <header class="section-header">
+          <span class="section-subtitle">TECH STACK</span>
+          <h2 class="section-title">제가 보유한 핵심 기술 스택</h2>
+          <div class="section-line" aria-hidden="true"></div>
+        </header>
+
+        <div class="skills-grid">
+          <!-- 스킬 카드 1: HTML5 -->
+          <article class="skill-card">
+            <div class="skill-card-top">
+              <div class="skill-icon html-color"><i class="fa-brands fa-html5" aria-hidden="true"></i></div>
+              <span class="skill-level">Core Foundation</span>
+            </div>
+            <h3 class="skill-name">HTML5</h3>
+            <p class="skill-desc">
+              <code>div</code> 만능주의를 탈피하고 <code>header</code>, <code>nav</code>, <code>section</code>, <code>article</code> 등 시맨틱 태그로 정보의 위계를 설계합니다. 웹 접근성과 SEO를 철저히 고려합니다.
+            </p>
+            <ul class="skill-tags">
+              <li>#시맨틱마크업</li>
+              <li>#웹접근성(a11y)</li>
+              <li>#SEO최적화</li>
+            </ul>
+          </article>
+
+          <!-- 스킬 카드 2: CSS3 -->
+          <article class="skill-card">
+            <div class="skill-card-top">
+              <div class="skill-icon css-color"><i class="fa-brands fa-css3-alt" aria-hidden="true"></i></div>
+              <span class="skill-level">Layout & Styling</span>
+            </div>
+            <h3 class="skill-name">CSS3</h3>
+            <p class="skill-desc">
+              CSS 커스텀 속성(변수)으로 다크모드를 구현하며, 1차원 배치는 <strong>Flexbox</strong>, 2차원 그리드는 <strong>Grid</strong>를 정확한 기준에 맞춰 채택합니다. Mobile-First 미디어 쿼리를 준수합니다.
+            </p>
+            <ul class="skill-tags">
+              <li>#CSS변수(:root)</li>
+              <li>#Flexbox_vs_Grid</li>
+              <li>#MobileFirst</li>
+            </ul>
+          </article>
+
+          <!-- 스킬 카드 3: JavaScript (ES6+) -->
+          <article class="skill-card">
+            <div class="skill-card-top">
+              <div class="skill-icon js-color"><i class="fa-brands fa-js" aria-hidden="true"></i></div>
+              <span class="skill-level">Dynamic Logic</span>
+            </div>
+            <h3 class="skill-name">JavaScript (ES6+)</h3>
+            <p class="skill-desc">
+              <code>var</code>를 완전히 배제하고 <code>const/let</code>, 화살표 함수, 구조분해 할당을 다룹니다. <code>addEventListener</code>를 통해 브라우저 이벤트를 제어하고 DOM을 조작합니다.
+            </p>
+            <ul class="skill-tags">
+              <li>#DOM조작</li>
+              <li>#화살표함수</li>
+              <li>#구조분해할당</li>
+            </ul>
+          </article>
+
+          <!-- 스킬 카드 4: Async & API -->
+          <article class="skill-card">
+            <div class="skill-card-top">
+              <div class="skill-icon api-color"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></div>
+              <span class="skill-level">Data Communication</span>
+            </div>
+            <h3 class="skill-name">비동기 통신 (Async/Fetch)</h3>
+            <p class="skill-desc">
+              <code>fetch</code>와 <code>async/await</code>, <code>try/catch</code>를 사용하여 REST API를 호출하고, 로딩(Loading), 성공(Success), 에러(Error), 빈값(Empty)의 4가지 상태를 UI로 분기 렌더링합니다.
+            </p>
+            <ul class="skill-tags">
+              <li>#FetchAPI</li>
+              <li>#AsyncAwait</li>
+              <li>#상태분기처리</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!--
+      ----------------------------------------------------------------------
+      [SECTION 4: PROJECTS (GitHub API 연동)]
+      - GitHub API에서 레포지토리 목록을 동적으로 가져와 카드 그리드로 렌더링
+      - 로딩, 성공, 에러(재시도 버튼 포함), 빈 데이터 4가지 상태 처리
+      - [보너스] 언어별 필터링 기능 (map/filter 활용)
+      - [보너스] GitHub 아이디 변경 조회 기능 (데모 및 검증 최적화)
+      ----------------------------------------------------------------------
+    -->
+    <section class="section projects-section" id="projects">
+      <div class="container">
+        <header class="section-header">
+          <span class="section-subtitle">PORTFOLIO WORK</span>
+          <h2 class="section-title">GitHub 연동 프로젝트</h2>
+          <p class="section-desc">
+            GitHub REST API(<code>/users/{username}/repos</code>)를 호출하여 실시간으로 저장소 데이터를 가져옵니다.
+          </p>
+          <div class="section-line" aria-hidden="true"></div>
+        </header>
+
+        <!-- GitHub 사용자 변경 검색 바 (평가관 및 방문자가 본인 아이디를 즉시 테스트 가능) -->
+        <div class="repo-search-box">
+          <label for="github-username-input" class="search-label">
+            <i class="fa-brands fa-github" aria-hidden="true"></i> GitHub 계정 조회:
+          </label>
+          <div class="search-input-group">
+            <input 
+              type="text" 
+              id="github-username-input" 
+              class="search-input" 
+              placeholder="조회할 GitHub 아이디 입력 (예: nick19850906-debug)"
+              value="nick19850906-debug"
+              autocomplete="off"
+            >
+            <button type="button" id="github-search-btn" class="btn btn-search">
+              <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+              <span>조회하기</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 프로젝트 언어 필터 버튼 모음 (Bonus: array.filter() 적용) -->
+        <div class="filter-container" id="filter-container" role="toolbar" aria-label="프로젝트 언어 필터">
+          <button type="button" class="filter-btn active" data-lang="all">전체보기 (All)</button>
+          <button type="button" class="filter-btn" data-lang="JavaScript">JavaScript</button>
+          <button type="button" class="filter-btn" data-lang="HTML">HTML/CSS</button>
+          <button type="button" class="filter-btn" data-lang="TypeScript">TypeScript</button>
+          <button type="button" class="filter-btn" data-lang="Python">Python</button>
+          <button type="button" class="filter-btn" data-lang="other">기타</button>
+        </div>
+
+        <!-- 
+          프로젝트 카드들이 동적으로 삽입될 메인 컨테이너 
+          (자바스크립트가 로딩/성공/에러/빈 상태에 따라 innerHTML을 교체합니다)
+        -->
+        <div class="projects-grid" id="projects-container" aria-live="polite">
+          <!-- 초기 상태는 자바스크립트가 실행되기 전 기본 로딩 스피너 마크업 -->
+          <div class="state-box loading-state">
+            <div class="spinner" aria-hidden="true"></div>
+            <p class="state-title">GitHub 저장소 목록을 불러오는 중입니다...</p>
+            <p class="state-desc">비동기 fetch 요청을 처리하고 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!--
+      ----------------------------------------------------------------------
+      [SECTION 5: CONTACT]
+      - 방문자 문의 양식 (이름, 이메일, 메시지)
+      - <label for="...">와 <input id="...">를 완벽히 매칭하여 웹 접근성 준수
+      - 브라우저 기본 툴팁 대신 실시간 자바스크립트 유효성 검사 및 에러 메시지 노출
+      - event.preventDefault()로 폼 새로고침을 방지하고 상태 관리
+      ----------------------------------------------------------------------
+    -->
+    <section class="section contact-section" id="contact">
+      <div class="container">
+        <header class="section-header">
+          <span class="section-subtitle">GET IN TOUCH</span>
+          <h2 class="section-title">함께 성장할 준비가 되셨나요?</h2>
+          <p class="section-desc">궁금한 점이나 협업 제안은 언제든 환영합니다. 아래 폼을 통해 메시지를 남겨주세요.</p>
+          <div class="section-line" aria-hidden="true"></div>
+        </header>
+
+        <div class="contact-wrapper">
+          <!-- 좌측: 연락처 정보 안내 카드 -->
+          <div class="contact-info-card">
+            <h3 class="contact-info-title">Contact Information</h3>
+            <p class="contact-info-text">
+              새로운 아이디어를 나누고 지속적으로 배우는 개발자입니다. 메일이나 링크를 통해 언제든 연락해주세요!
+            </p>
+
+            <ul class="contact-details">
+              <li class="contact-detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-envelope" aria-hidden="true"></i></div>
+                <div>
+                  <span class="detail-label">이메일</span>
+                  <a href="mailto:dev.frontend@example.com" class="detail-val">dev.frontend@example.com</a>
+                </div>
+              </li>
+              <li class="contact-detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></div>
+                <div>
+                  <span class="detail-label">활동 지역</span>
+                  <span class="detail-val">대한민국 서울 (원격 근무 가능)</span>
+                </div>
+              </li>
+              <li class="contact-detail-item">
+                <div class="detail-icon"><i class="fa-solid fa-clock" aria-hidden="true"></i></div>
+                <div>
+                  <span class="detail-label">회신 가능 시간</span>
+                  <span class="detail-val">평일 09:00 - 18:00 (24시간 이내 답변)</span>
+                </div>
+              </li>
+            </ul>
+
+            <!-- SNS 링크 모음 -->
+            <div class="contact-socials">
+              <span class="socials-label">Social Links:</span>
+              <div class="social-links">
+                <a href="https://github.com/nick19850906-debug" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="GitHub 프로필 새 창 열기">
+                  <i class="fa-brands fa-github" aria-hidden="true"></i>
+                </a>
+                <a href="https://velog.io" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="기술 블로그 새 창 열기">
+                  <i class="fa-solid fa-book-bookmark" aria-hidden="true"></i>
+                </a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="social-btn" aria-label="LinkedIn 새 창 열기">
+                  <i class="fa-brands fa-linkedin-in" aria-hidden="true"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 우측: 인터랙티브 문의 폼 -->
+          <!-- novalidate: 브라우저 고유의 기본 검증 말풍선을 끄고, 우리가 만든 JS로 검증하기 위한 속성 -->
+          <form class="contact-form" id="contact-form" novalidate>
+            <h3 class="form-title">메시지 보내기</h3>
+
+            <!-- 폼 성공/실패 글로벌 알림 배너 (기본은 display: none) -->
+            <div class="form-alert" id="form-alert" role="alert" aria-live="polite"></div>
+
+            <!-- 1. 이름 입력 필드 -->
+            <div class="form-group" id="group-name">
+              <label for="contact-name" class="form-label">
+                성함 / 회사명 <span class="required-mark" aria-hidden="true">*</span>
+              </label>
+              <div class="input-wrapper">
+                <i class="fa-solid fa-user input-icon" aria-hidden="true"></i>
+                <input 
+                  type="text" 
+                  id="contact-name" 
+                  name="name" 
+                  class="form-input" 
+                  placeholder="홍길동"
+                  autocomplete="name"
+                  required
+                >
+              </div>
+              <!-- 에러 문구 출력 영역 -->
+              <span class="error-msg" id="error-name" aria-live="polite"></span>
+            </div>
+
+            <!-- 2. 이메일 입력 필드 -->
+            <div class="form-group" id="group-email">
+              <label for="contact-email" class="form-label">
+                이메일 주소 <span class="required-mark" aria-hidden="true">*</span>
+              </label>
+              <div class="input-wrapper">
+                <i class="fa-solid fa-envelope input-icon" aria-hidden="true"></i>
+                <input 
+                  type="email" 
+                  id="contact-email" 
+                  name="email" 
+                  class="form-input" 
+                  placeholder="example@domain.com"
+                  autocomplete="email"
+                  required
+                >
+              </div>
+              <span class="error-msg" id="error-email" aria-live="polite"></span>
+            </div>
+
+            <!-- 3. 메시지 본문 입력 필드 -->
+            <div class="form-group" id="group-message">
+              <label for="contact-message" class="form-label">
+                문의 내용 <span class="required-mark" aria-hidden="true">*</span>
+              </label>
+              <div class="input-wrapper textarea-wrapper">
+                <textarea 
+                  id="contact-message" 
+                  name="message" 
+                  rows="5" 
+                  class="form-textarea" 
+                  placeholder="프로젝트 의뢰, 협업 제안, 기타 문의 사항을 자유롭게 남겨주세요."
+                  required
+                ></textarea>
+              </div>
+              <span class="error-msg" id="error-message" aria-live="polite"></span>
+            </div>
+
+            <!-- 전송 버튼 -->
+            <button type="submit" class="btn btn-submit" id="submit-btn">
+              <i class="fa-solid fa-paper-plane btn-icon" aria-hidden="true"></i>
+              <span class="btn-text">메시지 전송하기</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!--
+    ========================================================================
+    [FOOTER]
+    - <footer>: 웹사이트 하단의 저작권 정보, 소셜 링크를 담는 시맨틱 태그
+    ========================================================================
+  -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-left">
+        <p class="footer-copy">
+          &copy; <span id="current-year">2026</span> <strong>김프론트</strong>. All Rights Reserved.
+        </p>
+        <p class="footer-desc">
+          Crafted with pure HTML5, CSS3 & Modern JavaScript. No external libraries used.
+        </p>
+      </div>
+
+      <div class="footer-right">
+        <ul class="footer-nav">
+          <li><a href="#hero">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#skills">Skills</a></li>
+          <li><a href="#projects">Projects</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <!--
+    ========================================================================
+    [FLOATING UI]
+    - 스크롤 300px 초과 시 등장하는 최상단 바로가기(Scroll To Top) 버튼
+    ========================================================================
+  -->
+  <button type="button" class="scroll-top-btn" id="scroll-top-btn" aria-label="페이지 맨 위로 이동" title="맨 위로 이동">
+    <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+  </button>
+</body>
+</html>
