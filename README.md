@@ -23,11 +23,21 @@
 
 ## 1. 프로젝트 소개
 - **목적**: 웹의 3대 기초 언어인 HTML, CSS, JavaScript의 동작 원리를 체득하고, "이벤트 → 상태 변경 → DOM 렌더링"으로 이어지는 현대 웹(React 등)의 핵심 멘탈 모델을 확립합니다.
+- **아키텍처**: 불변성(Immutable) 상태 업데이트 패턴 도입(`setState` 헬퍼), 스크롤 이벤트 쓰로틀링(Throttle) 적용으로 성능 최적화. 향후 프로젝트 규모가 커질 경우 `projects.js`, `theme.js` 등으로 모듈 분리(ES Modules) 및 리스트 지연 로딩(Lazy Loading) 전략을 도입할 계획입니다.
 - **기술 스택**: 
-  - **HTML5**: 웹 표준 시맨틱 태그, SEO 메타태그, 웹 접근성(`aria-*`, `label for`)
-  - **CSS3**: CSS 커스텀 속성(변수), Flexbox, CSS Grid(`auto-fit`, `minmax`), 모바일 퍼스트 미디어 쿼리, 다크모드, 글래스모피즘
-  - **JavaScript (ES6+)**: `const/let`, 화살표 함수, 구조분해 할당, 템플릿 리터럴, `map/filter/forEach`, `fetch` + `async/await`, Intersection Observer API, Web Storage API(`localStorage`)
-  - **아이콘 & 폰트**: Font Awesome CDN (순수 CSS 아이콘), Google Fonts (Outfit, Noto Sans KR)
+  - **HTML5**: 웹 표준 시맨틱 태그, SEO 메타태그, 웹 접근성(`aria-*`, `label for`, 스킵 네비게이션)
+  - **CSS3**: CSS 커스텀 속성(변수), Flexbox, CSS Grid(`auto-fit`, `minmax`), 모바일 퍼스트 미디어 쿼리, 다크모드, 심미적 마이크로 인터랙션(Mouse Glow)
+  - **JavaScript (ES6+)**: 중앙 집중형 `setState`, `AbortController` 기반 타임아웃, `map/filter`, 비동기 `fetch` + `async/await`, `Intersection Observer API`
+  - **아이콘 & 정적 자산**: Font Awesome CDN, Google Fonts (Outfit, Noto Sans KR)
+
+### 🎨 주요 CSS 변수 매핑 테이블 (Design System)
+| 변수명 | 용도 및 매핑 대상 |
+| :--- | :--- |
+| `--bg-body` | 전체 배경색 (라이트: Slate-50 / 다크: Deep Navy) |
+| `--bg-surface` | 컴포넌트(카드, 인풋창) 배경 |
+| `--primary-color` | 강조 버튼, 활성 탭, 주요 링크 색상 |
+| `--primary-glow` | 포커스 및 Hover 시 마우스 추적(Mouse Glow) 이펙트 컬러 |
+| `--border-color` | 기본 경계선 및 컨테이너 테두리 |
 
 ---
 
@@ -41,7 +51,8 @@ anti_gravity_mission_01/
 ├── js/
 │   └── main.js             # ES6+, DOM 제어, GitHub API, 폼 검증, 스크롤 인터랙션
 ├── images/
-│   ├── profile.svg         # 모던 벡터 개발자 프로필 아바타 일러스트
+│   ├── profile_dandy.jpg   # 생성형 AI로 제작된 댄디한 개발자 프로필 이미지
+│   ├── profile.svg         # (예비용) 모던 벡터 개발자 프로필 아바타 일러스트
 │   └── favicon.svg         # 브라우저 탭 파비콘 아이콘
 └── README.md               # 프로젝트 설명서 및 평가 대비 Q&A 가이드
 ```
@@ -50,20 +61,18 @@ anti_gravity_mission_01/
 
 ## 3. 핵심 구현 기능 & 인터랙션 요약
 
-| 기능 구분 | 구현 내용 | 기준값 및 세부 사양 (README 명시) |
+| 기능 구분 | 구현 내용 | 세부 사양 및 성능/접근성 최적화 |
 | :--- | :--- | :--- |
-| **반응형 디자인** | 스마트폰, 태블릿, 데스크톱 레이아웃 최적화 | Mobile First 기본 / 태블릿(`768px`) / 데스크톱(`1024px`) |
-| **햄버거 메뉴** | 모바일 화면에서 버튼 클릭 시 메뉴 토글 | `classList.toggle('active')` & `aria-expanded` 동기화 |
-| **부드러운 스크롤** | 네비게이션 메뉴 클릭 시 해당 섹션으로 스크롤 | `scrollIntoView({ behavior: 'smooth' })` 및 모바일 메뉴 자동 닫힘 |
-| **헤더 스타일 변경** | 스크롤 시 상단 바 배경 반투명 블러 & 그림자 전환 | **스크롤 60px 이상**에서 `.header-scrolled` 클래스 부여 |
-| **스크롤탑 버튼** | 플로팅 버튼 클릭 시 페이지 맨 위로 이동 | **스크롤 300px 이상**에서 `.show` 클래스 부여 |
-| **다크 모드** | 토글 버튼 클릭 시 라이트/다크 테마 전환 | `localStorage` 영구 보존 + `prefers-color-scheme` OS 시스템 테마 자동 감지 |
-| **스크롤 등장 애니메이션** | 화면을 내릴 때 요소들이 아래에서 부드럽게 등장 | **Intersection Observer** 사용 (임계값 `threshold: 0.2`) |
-| **타이핑 효과 (보너스)** | Hero 섹션에서 직무 소개 문구가 한 글자씩 타이핑 | 순수 JS 타이머 기반 타이핑 & 지우기 루프 |
-| **GitHub API 연동** | `/users/{username}/repos` 호출 및 동적 렌더링 | **4가지 상태(로딩/성공/에러/빈값)** 완벽 분기 처리 + 403 Rate Limit 대응 |
-| **프로젝트 필터 (보너스)**| 언어별(JS, HTML, TS, Python 등) 실시간 필터링 | `array.filter()` 배열 메서드 활용 |
-| **계정 검색 (보너스)** | 원하는 GitHub 사용자 아이디를 입력하여 즉시 조회 | 입력창 + Enter키/버튼 이벤트 연동 |
-| **폼 유효성 검사** | 이름, 이메일 정규식, 메시지 길이 검증 | `event.preventDefault()`, 인라인 실시간 에러 출력, 성공 모달 안내 |
+| **반응형 디자인** | 스마트폰, 태블릿, 데스크톱 레이아웃 | Mobile First (`768px`, `1024px`) / *[검증: 기기별 레이아웃 체크리스트 완료]* |
+| **웹 접근성(a11y)** | 키보드 및 스크린 리더 호환 | 최상단 스킵 네비게이션, 최소 터치 표적(44px) 확보, `aria-pressed` 토글 상태 동기화 |
+| **부드러운 스크롤** | 네비게이션 앵커 부드러운 스크롤 | `scrollIntoView({ behavior: 'smooth' })` 적용 |
+| **스크롤 이벤트** | 헤더 블러 전환 / Scroll Spy 등 | 성능 저하 방지를 위한 **Throttle(100ms)** 적용 |
+| **다크 모드** | 라이트/다크 테마 전환 보존 | `localStorage` + OS 테마 자동 감지 (`prefers-color-scheme`) |
+| **스크롤 애니메이션**| 요소 등장 시 Fade-in 인터랙션 | **Intersection Observer** (성능 최적화를 위해 1회 등장 후 관찰 `unobserve` 해제) |
+| **파티클 물리 엔진** | 캔버스 기반의 동적 백그라운드 | **Canvas API** 활용, 마우스 위치에 따라 부드럽게 반응(Repel)하는 파티클 렌더링 |
+| **심미적 애니메이션**| 마우스 추적 및 맥동(Pulse) 효과 | 카드 Hover 시 비선형적으로 퍼지는 `box-shadow` 글로우 및 `radial-gradient` 트래킹 |
+| **GitHub API 연동** | 저장소 목록 비동기 호출 | `AbortController`(8초 타임아웃) 및 연속 에러 방지를 위한 3회 재시도(Retry) 제한 로직 구현 |
+| **폼 유효성 검사** | 프론트엔드 실시간 밸리데이션 | *※ 백엔드 연동 시 서버의 검증 실패(예: 400 Bad Request)에 대한 에러 폴백 처리 병행 필수* |
 
 ---
 

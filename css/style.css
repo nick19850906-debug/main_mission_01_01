@@ -120,6 +120,17 @@ body {
   overflow-x: hidden;
 }
 
+/* 인터랙티브 백그라운드 파티클 캔버스 */
+#particle-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none; /* 클릭 막힘 방지 */
+}
+
 img {
   max-width: 100%;
   height: auto;
@@ -130,6 +141,21 @@ a {
   color: inherit;
   text-decoration: none;
   transition: color var(--transition-fast);
+}
+
+/* 키보드 사용자를 위한 본문 바로가기 스킵 네비게이션 */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--primary-color);
+  color: white;
+  padding: 8px 16px;
+  z-index: 9999;
+  transition: top 0.3s;
+}
+.skip-link:focus {
+  top: 0;
 }
 
 button, input, textarea {
@@ -261,8 +287,8 @@ ul {
 /* 스크롤 시 (>60px) 자바스크립트로 추가되는 클래스 */
 .header.header-scrolled {
   background-color: var(--bg-surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: var(--shadow-md);
   border-bottom: 1px solid var(--border-color);
 }
@@ -272,6 +298,7 @@ ul {
   - 로고는 왼쪽, 네비게이션과 버튼은 우측에 배치하기 위해 justify-content: space-between 사용
 */
 .header-container {
+  /* Flexbox를 사용하여 좌측 로고와 우측 네비게이션을 양끝으로 배치합니다. */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -747,6 +774,7 @@ ul {
 }
 
 .skill-card {
+  position: relative;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -756,12 +784,26 @@ ul {
   flex-direction: column;
   gap: 0.85rem;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  z-index: 1;
 }
 
 .skill-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--primary-color);
+  border-color: transparent;
+  animation: mint-glow-pulse 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+/* 밖으로 퍼져나가는 비선형적인 민트색 잔광(box-shadow 맥동) 애니메이션 */
+@keyframes mint-glow-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 204, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(0, 255, 204, 0.4), 0 0 40px 20px rgba(6, 182, 212, 0.2);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 204, 0);
+  }
 }
 
 .skill-card-top {
@@ -925,6 +967,7 @@ ul {
     화면이 넓어지면 별도의 복잡한 미디어 쿼리 없이도 자동으로 2단, 3단으로 유연하게 확장됩니다.
 */
 .projects-grid {
+  /* Grid의 auto-fit과 minmax를 사용해 미디어쿼리 없이 완벽한 반응형 2차원 배열을 완성합니다. */
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.75rem;
@@ -1010,6 +1053,7 @@ ul {
 
 /* 4. 성공 시 렌더링되는 개별 프로젝트 카드 (.repo-card) */
 .repo-card {
+  position: relative;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -1019,12 +1063,41 @@ ul {
   flex-direction: column;
   justify-content: space-between;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  overflow: hidden;
+}
+
+/* 마우스 트래킹 Glow 효과를 위한 가상 요소 */
+.repo-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    800px circle at var(--mouse-x) var(--mouse-y),
+    var(--primary-glow),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.repo-card:hover::before {
+  opacity: 1;
 }
 
 .repo-card:hover {
   transform: translateY(-6px);
   box-shadow: var(--shadow-lg);
   border-color: var(--primary-color);
+}
+
+.repo-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .repo-card-header {

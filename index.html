@@ -15,10 +15,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <!-- SEO(검색엔진 최적화) 및 브라우저 탭 정보 -->
-  <title>김프론트 | 주니어 프론트엔드 개발자 포트폴리오</title>
-  <meta name="description" content="순수 HTML, CSS, JavaScript로 제작된 반응형 포트폴리오 웹사이트입니다. GitHub API 연동 및 인터랙티브 UI 제공.">
+  <title>루시드프론트 | 주니어 프론트엔드 개발자 포트폴리오</title>
+  <meta name="description" content="순수 HTML, CSS, JavaScript로 제작된 반응형 포트폴리오 웹사이트입니다. GitHub API 연동 및 다크모드 지원.">
   <meta name="keywords" content="프론트엔드, 포트폴리오, HTML, CSS, JavaScript, GitHub API, 반응형 웹">
-  <meta name="author" content="김프론트">
+  <meta name="author" content="루시드프론트">
 
   <!-- 파비콘 (브라우저 탭 아이콘) -->
   <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
@@ -45,6 +45,12 @@
 </head>
 
 <body>
+  <!-- 배경 파티클 애니메이션을 위한 Canvas 요소 -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- 웹 접근성 보조기기 및 키보드 사용자를 위한 스킵 네비게이션 -->
+  <a href="#main-content" class="skip-link">본문 바로가기</a>
+
   <!--
     ========================================================================
     [HEADER & NAVIGATION]
@@ -56,7 +62,7 @@
   <header class="header" id="header">
     <div class="container header-container">
       <!-- 사이트 로고 (클릭 시 최상단 Hero로 이동) -->
-      <a href="#hero" class="logo" aria-label="김프론트 포트폴리오 홈으로 이동">
+      <a href="#hero" class="logo" aria-label="루시드프론트 포트폴리오 홈으로 이동">
         <span class="logo-symbol">&lt;/&gt;</span>
         <span class="logo-text">DevPortfolio</span>
       </a>
@@ -74,8 +80,8 @@
 
       <!-- 우측 기능 버튼 모음 (다크모드 토글 버튼 + 모바일 햄버거 메뉴 버튼) -->
       <div class="header-actions">
-        <!-- 다크 모드 토글 버튼 -->
-        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="다크 모드 및 라이트 모드 전환" title="테마 변경">
+        <!-- 다크 모드 토글 버튼 (접근성: aria-pressed로 눌림 상태 관리) -->
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="다크 모드 및 라이트 모드 전환" title="테마 변경" aria-pressed="false">
           <i class="fa-solid fa-moon theme-icon-dark" aria-hidden="true"></i>
           <i class="fa-solid fa-sun theme-icon-light" aria-hidden="true"></i>
         </button>
@@ -114,8 +120,8 @@
           <span class="hero-badge">👋 반갑습니다! 웹의 본질을 탐구하는</span>
           
           <h1 class="hero-title">
-            안녕하세요, 저는 <br>
-            <span class="highlight-name">루시드 프론트</span>입니다.
+            <span class="greeting">안녕하세요,</span>
+            <span class="highlight-name">루시드프론트</span>입니다.
           </h1>
 
           <!-- 자바스크립트로 구현된 한 글자씩 써지는 타이핑 효과 문구 -->
@@ -178,23 +184,22 @@
     <section class="section about-section" id="about">
       <div class="container">
         <!-- 섹션 공통 헤더: 제목 및 서브타이틀 -->
-        <header class="section-header">
-          <span class="section-subtitle">ABOUT ME</span>
+        <div class="section-header fade-in">
           <h2 class="section-title">기초가 튼튼한 개발자, 루시드프론트입니다</h2>
-          <div class="section-line" aria-hidden="true"></div>
-        </header>
+          <p class="section-subtitle">배움을 즐기고, 사용자 경험을 고민하며 성장합니다.</p>
+        </div>
 
         <div class="about-grid">
-          <!-- 프로필 이미지 영역 -->
-          <div class="about-image-wrapper">
+          <!-- 좌측 시각 요소 (아바타 이미지) -->
+          <div class="about-image-wrapper fade-in" style="transition-delay: 0.1s;">
             <div class="profile-card">
               <img 
-                src="images/profile.svg" 
-                alt="노트북으로 웹 프론트엔드 코딩을 하고 있는 김프론트 개발자의 미소 짓는 일러스트 아바타"
+                src="images/profile_dandy.jpg" 
+                alt="루시드프론트 개발자의 안경 쓴 댄디한 프로필"
                 class="profile-image"
                 width="340"
                 height="340"
-              >
+                loading="lazy">
               <div class="profile-badge">
                 <span class="badge-dot" aria-hidden="true"></span>
                 <span>새로운 도전을 환영합니다!</span>
@@ -547,14 +552,10 @@
     ========================================================================
   -->
   <footer class="footer">
-    <div class="container footer-container">
-      <div class="footer-left">
-        <p class="footer-copy">
-          &copy; <span id="current-year">2026</span> <strong>김프론트</strong>. All Rights Reserved.
-        </p>
-        <p class="footer-desc">
-          Crafted with pure HTML5, CSS3 & Modern JavaScript. No external libraries used.
-        </p>
+    <div class="footer-container container">
+      <div class="footer-info">
+        <p class="footer-copy">&copy; <span id="current-year">2026</span> <strong>루시드프론트</strong>. All Rights Reserved.</p>
+        <p class="footer-desc">순수 HTML, CSS, JS로 만들어진 반응형 포트폴리오 프로젝트. Crafted with pure HTML5, CSS3 & Modern JavaScript. No external libraries used.</p>
       </div>
 
       <div class="footer-right">

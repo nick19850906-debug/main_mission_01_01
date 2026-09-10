@@ -26,18 +26,19 @@
    - React의 useState 개념의 기초입니다.
    - 데이터(State)를 중앙에서 보관하고, 상태가 바뀌면 렌더링 함수를 호출해 DOM을 바꿉니다.
    ========================================================================== */
-const AppState = {
+let AppState = {
   // 다크 모드 상태 ('light' 또는 'dark')
   theme: 'light',
   
   // GitHub 프로젝트 관련 상태
   github: {
-    username: 'nick19850906-debug', // 기본 조회 계정 (사용자 본인 아이디)
-    repos: [],           // API로 받아온 전체 원본 저장소 목록
-    filteredRepos: [],   // 필터링 적용 후 저장소 목록
-    currentFilter: 'all',// 선택된 언어 필터 ('all', 'JavaScript', 등)
-    status: 'idle',      // UI 상태: 'idle' | 'loading' | 'success' | 'error' | 'empty'
-    errorMessage: ''     // 에러 발생 시 출력할 안내 문구
+    username: 'nick19850906-debug',
+    repos: [],
+    filteredRepos: [],
+    currentFilter: 'all',
+    status: 'idle',
+    errorMessage: '',
+    retryCount: 0 // 재시도 횟수 추적
   },
 
   // 폼 유효성 상태
@@ -47,6 +48,43 @@ const AppState = {
     isSubmitted: false
   }
 };
+
+/**
+ * 상태 변경 헬퍼 함수 (Immutable State Update & Logging)
+ * @param {Function} updater - 현재 상태를 받아 새로운 상태의 일부를 반환하는 함수
+ */
+function setState(updater) {
+  const nextState = typeof updater === 'function' ? updater(AppState) : updater;
+  const prevState = JSON.stringify(AppState);
+  
+  // 불변성(Immutability) 유지하며 객체 병합 (깊은 복사가 필요한 경우는 간단히 전개연산자 사용)
+  AppState = {
+    ...AppState,
+    ...nextState,
+    github: { ...AppState.github, ...(nextState.github || {}) },
+    contactForm: { ...AppState.contactForm, ...(nextState.contactForm || {}) }
+  };
+  
+  console.log(`%c[State Changed]`, 'color: #4f46e5; font-weight: bold;');
+  console.log('Prev:', JSON.parse(prevState));
+  console.log('Next:', AppState);
+}
+
+/**
+ * Throttle 유틸리티 (스크롤 성능 최적화용)
+ */
+function throttle(func, limit) {
+  let inThrottle;
+  return function() {
+    const args = arguments;
+    const context = this;
+    if (!inThrottle) {
+      func.apply(context, args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  }
+}
 
 /* ==========================================================================
    2. 주요 DOM 요소 캐싱 (Element Caching)
@@ -106,44 +144,46 @@ const ThemeManager = {
     const savedTheme = localStorage.getItem(this.STORAGE_KEY);
     
     if (savedTheme) {
-      AppState.theme = savedTheme;
+      setState({ theme: savedTheme });
     } else {
-      // 2) 저장이 없다면 사용자의 OS 시스템 테마(prefers-color-scheme) 감지 (보너스 요구사항)
+      // 2) 저장이 없다면 사용자의 OS 시스템 테마(prefers-color-scheme) 감지
       const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      AppState.theme = systemPrefersDark ? 'dark' : 'light';
+      setState({ theme: systemPrefersDark ? 'dark' : 'light' });
     }
 
     // DOM에 초기 테마 반영
     this.render();
 
-    // 토글 버튼 클릭 이벤트 등록 (onclick 대신 addEventListener 사용 원칙)
-    DOM.themeToggleBtn.addEventListener('click', () => this.toggleTheme());
-
-    // OS 시스템 테마 변경 시 실시간 반응
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    // 명명된 함수 바인딩으로 이벤트 리스너 재사용성 향상
+    this.handleToggleClick = this.toggleTheme.bind(this);
+    this.handleSystemThemeChange = (e) => {
       if (!localStorage.getItem(this.STORAGE_KEY)) {
-        AppState.theme = e.matches ? 'dark' : 'light';
+        setState({ theme: e.matches ? 'dark' : 'light' });
         this.render();
       }
-    });
+    };
+
+    DOM.themeToggleBtn.addEventListener('click', this.handleToggleClick);
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', this.handleSystemThemeChange);
   },
 
   /**
    * 테마 전환 토글
    */
   toggleTheme() {
-    AppState.theme = AppState.theme === 'light' ? 'dark' : 'light';
-    // 로컬 스토리지에 저장하여 새로고침 시에도 유지 (요구사항)
+    const nextTheme = AppState.theme === 'light' ? 'dark' : 'light';
+    setState({ theme: nextTheme });
     localStorage.setItem(this.STORAGE_KEY, AppState.theme);
     this.render();
   },
 
   /**
-   * DOM 렌더링: 최상단 html 태그에 data-theme 부여
+   * DOM 렌더링: 최상단 html 태그에 data-theme 부여 및 접근성(aria-pressed) 반영
    */
   render() {
     DOM.html.setAttribute('data-theme', AppState.theme);
     DOM.themeToggleBtn.setAttribute('title', `현재: ${AppState.theme === 'dark' ? '다크 모드' : '라이트 모드'}`);
+    DOM.themeToggleBtn.setAttribute('aria-pressed', AppState.theme === 'dark' ? 'true' : 'false');
   }
 };
 
@@ -160,39 +200,45 @@ const NavigationManager = {
   SCROLL_TOP_THRESHOLD: 300,   // 스크롤탑 버튼 표시 기준 스크롤 높이 (px)
 
   init() {
-    // 1. 모바일 햄버거 메뉴 토글 이벤트
-    DOM.hamburgerBtn.addEventListener('click', () => this.toggleMobileMenu());
-
-    // 2. 네비게이션 메뉴 앵커 링크 클릭 시 부드러운 스크롤 & 모바일 메뉴 자동 닫기
-    DOM.navLinks.forEach((link) => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault(); // 기본 해시(#) 점프 동작 방지
-        const targetId = link.getAttribute('href');
-        const targetSection = document.querySelector(targetId);
-
-        if (targetSection) {
-          // targetSection.scrollIntoView: 부드러운 스크롤 내장 API
-          targetSection.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // 모바일인 경우 메뉴 클릭 후 드롭다운 닫기
-        this.closeMobileMenu();
-      });
-    });
-
-    // 3. 스크롤탑 버튼 클릭 시 페이지 최상단으로 부드럽게 이동
-    DOM.scrollTopBtn.addEventListener('click', () => {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
-    });
-
-    // 4. 윈도우 스크롤 이벤트 감지
-    window.addEventListener('scroll', () => {
+    // 이벤트 핸들러를 명명된 함수로 분리
+    this.handleHamburgerClick = this.toggleMobileMenu.bind(this);
+    this.handleNavLinkClick = this.onNavLinkClick.bind(this);
+    this.handleScrollTopClick = this.onScrollTopClick.bind(this);
+    // 스크롤 성능 향상을 위한 Throttle 적용 (100ms)
+    this.throttledScroll = throttle(() => {
       this.handleScroll();
       this.updateActiveNavLink();
-    }, { passive: true }); // passive 옵션으로 스크롤 성능 최적화
+    }, 100);
+
+    // 1. 모바일 햄버거 메뉴 토글 이벤트
+    DOM.hamburgerBtn.addEventListener('click', this.handleHamburgerClick);
+
+    // 2. 네비게이션 메뉴 앵커 링크 클릭
+    DOM.navLinks.forEach((link) => {
+      link.addEventListener('click', this.handleNavLinkClick);
+    });
+
+    // 3. 스크롤탑 버튼
+    DOM.scrollTopBtn.addEventListener('click', this.handleScrollTopClick);
+
+    // 4. 윈도우 스크롤 이벤트 감지 (Throttling 적용)
+    window.addEventListener('scroll', this.throttledScroll, { passive: true });
+  },
+
+  onNavLinkClick(e) {
+    e.preventDefault();
+    const link = e.currentTarget;
+    const targetId = link.getAttribute('href');
+    const targetSection = document.querySelector(targetId);
+
+    if (targetSection) {
+      targetSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    this.closeMobileMenu();
+  },
+
+  onScrollTopClick() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
   /**
@@ -267,7 +313,7 @@ const ScrollAnimationManager = {
   init() {
     // 애니메이션을 적용할 주요 요소들 선택
     const targetElements = document.querySelectorAll(
-      '.about-grid, .feature-card, .skill-card, .repo-search-box, .filter-container, .contact-wrapper'
+      '.fade-in, .about-grid, .feature-card, .skill-card, .repo-search-box, .filter-container, .contact-wrapper'
     );
 
     // 각 대상 요소에 .fade-in 초기 클래스 추가
@@ -402,52 +448,54 @@ const ProjectsManager = {
    * @param {string} username - 조회할 GitHub 아이디
    */
   async fetchProjects(username) {
-    // [상태 1: LOADING] 로딩 상태로 변경 후 렌더링
-    AppState.github.status = 'loading';
+    setState({ github: { status: 'loading', errorMessage: '' } });
     this.render();
 
     const endpoint = `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=12`;
+    
+    // 네트워크 타임아웃 처리를 위한 AbortController 도입 (8초 타임아웃)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
-      const response = await fetch(endpoint);
+      const response = await fetch(endpoint, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-      // GitHub API Rate Limit (시간당 60회 제한) 처리 (403 상태코드 분기)
       if (response.status === 403) {
         throw new Error('GitHub API 호출 횟수 제한(Rate Limit)을 초과했습니다. 잠시 후 다시 시도해주세요.');
       }
-
-      // 404 Not Found (사용자를 찾을 수 없음)
       if (response.status === 404) {
         throw new Error(`사용자 '${username}'을(를) GitHub에서 찾을 수 없습니다.`);
       }
-
       if (!response.ok) {
         throw new Error(`데이터를 불러오지 못했습니다. (응답 코드: ${response.status})`);
       }
 
-      // JSON 파싱
       const data = await response.json();
-
-      // 포크된(fork) 저장소 제외 및 유의미한 저장소 우선 정렬
       const validRepos = Array.isArray(data) ? data : [];
 
-      AppState.github.repos = validRepos;
-
-      // [상태 4: EMPTY] 받아온 데이터가 빈 배열인 경우
-      if (validRepos.length === 0) {
-        AppState.github.status = 'empty';
-      } else {
-        // [상태 2: SUCCESS] 성공적으로 데이터를 불러왔을 때
-        AppState.github.status = 'success';
-        this.applyFilter(); // 현재 필터 상태를 적용하여 렌더링
+      // 성공 시 retryCount 초기화 및 상태 업데이트
+      setState({
+        github: {
+          repos: validRepos,
+          status: validRepos.length === 0 ? 'empty' : 'success',
+          retryCount: 0
+        }
+      });
+      if (AppState.github.status === 'success') {
+        this.applyFilter();
       }
     } catch (error) {
-      // [상태 3: ERROR] try/catch로 예외 처리 및 에러 상태 갱신
+      clearTimeout(timeoutId);
       console.error('[ProjectsManager] API Error:', error);
-      AppState.github.status = 'error';
-      AppState.github.errorMessage = error.message || '프로젝트를 불러오는 도중 오류가 발생했습니다.';
+      
+      let errorMessage = error.message || '프로젝트를 불러오는 도중 오류가 발생했습니다.';
+      if (error.name === 'AbortError') {
+        errorMessage = '요청 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.';
+      }
+      
+      setState({ github: { status: 'error', errorMessage } });
     } finally {
-      // 최종 결과 렌더링
       this.render();
     }
   },
@@ -521,10 +569,15 @@ const ProjectsManager = {
         </div>
       `;
 
-      // 동적으로 생성된 재시도 버튼에 addEventListener 바인딩
+      // 동적으로 생성된 재시도 버튼에 addEventListener 바인딩 (재시도 횟수 제한 로직 적용)
       const retryBtn = document.getElementById('btn-retry-fetch');
       if (retryBtn) {
         retryBtn.addEventListener('click', () => {
+          if (AppState.github.retryCount >= 3) {
+            alert('최대 재시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.');
+            return;
+          }
+          setState({ github: { retryCount: AppState.github.retryCount + 1 } });
           this.fetchProjects(AppState.github.username);
         });
       }
@@ -593,6 +646,17 @@ const ProjectsManager = {
     }).join(''); // 배열을 하나의 문자열로 결합
 
     DOM.projectsContainer.innerHTML = cardsHtml;
+
+    // 동적 생성된 .repo-card 요소들에 마우스 트래킹 Glow 애니메이션 이벤트 바인딩
+    document.querySelectorAll('.repo-card').forEach(card => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mouse-x', `${x}px`);
+        card.style.setProperty('--mouse-y', `${y}px`);
+      });
+    });
   },
 
   /**
@@ -766,7 +830,157 @@ const ContactFormManager = {
 };
 
 /* ==========================================================================
-   10. 애플리케이션 초기화 (Init Runner)
+   10. 인터랙티브 백그라운드 파티클 매니저 (Canvas API)
+   ========================================================================== */
+const ParticleManager = {
+  canvas: null,
+  ctx: null,
+  particlesArray: [],
+  mouse: { x: null, y: null, radius: 100 },
+
+  init() {
+    this.canvas = document.getElementById('particle-canvas');
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d');
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+
+    // 마우스 이벤트 바인딩
+    window.addEventListener('mousemove', (event) => {
+      this.mouse.x = event.x;
+      this.mouse.y = event.y;
+    });
+
+    window.addEventListener('resize', () => {
+      this.canvas.width = window.innerWidth;
+      this.canvas.height = window.innerHeight;
+      this.initParticles();
+    });
+
+    // 마우스가 화면 밖으로 나가면 연결 해제
+    window.addEventListener('mouseout', () => {
+      this.mouse.x = undefined;
+      this.mouse.y = undefined;
+    });
+
+    this.initParticles();
+    this.animate();
+  },
+
+  initParticles() {
+    this.particlesArray = [];
+    const numberOfParticles = (this.canvas.width * this.canvas.height) / 9000;
+    for (let i = 0; i < numberOfParticles; i++) {
+      const size = (Math.random() * 2) + 1;
+      const x = (Math.random() * ((this.canvas.width - size * 2) - (size * 2)) + size * 2);
+      const y = (Math.random() * ((this.canvas.height - size * 2) - (size * 2)) + size * 2);
+      const directionX = (Math.random() * 1) - 0.5;
+      const directionY = (Math.random() * 1) - 0.5;
+      // 반투명 회색톤 설정 (다크/라이트 모두 어울림)
+      const color = 'rgba(128, 128, 128, 0.4)';
+
+      this.particlesArray.push(new Particle(x, y, directionX, directionY, size, color, this));
+    }
+  },
+
+  animate() {
+    requestAnimationFrame(this.animate.bind(this));
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    for (let i = 0; i < this.particlesArray.length; i++) {
+      this.particlesArray[i].update();
+    }
+    this.connect();
+  },
+
+  connect() {
+    let opacityValue = 1;
+    for (let a = 0; a < this.particlesArray.length; a++) {
+      for (let b = a; b < this.particlesArray.length; b++) {
+        let distance = ((this.particlesArray[a].x - this.particlesArray[b].x) * (this.particlesArray[a].x - this.particlesArray[b].x))
+          + ((this.particlesArray[a].y - this.particlesArray[b].y) * (this.particlesArray[a].y - this.particlesArray[b].y));
+        
+        if (distance < (this.canvas.width / 7) * (this.canvas.height / 7)) {
+          opacityValue = 1 - (distance / 10000);
+          this.ctx.strokeStyle = `rgba(128, 128, 128, ${opacityValue * 0.2})`;
+          this.ctx.lineWidth = 1;
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.particlesArray[a].x, this.particlesArray[a].y);
+          this.ctx.lineTo(this.particlesArray[b].x, this.particlesArray[b].y);
+          this.ctx.stroke();
+        }
+      }
+    }
+  }
+};
+
+class Particle {
+  constructor(x, y, directionX, directionY, size, color, manager) {
+    this.x = x;
+    this.y = y;
+    this.directionX = directionX;
+    this.directionY = directionY;
+    this.size = size;
+    this.color = color;
+    this.manager = manager;
+    // 원래 위치 복귀를 위한 베이스 좌표
+    this.baseX = this.x;
+    this.baseY = this.y;
+  }
+
+  draw() {
+    this.manager.ctx.beginPath();
+    this.manager.ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+    this.manager.ctx.fillStyle = this.color;
+    this.manager.ctx.fill();
+  }
+
+  update() {
+    // 경계선 충돌 확인 및 방향 전환
+    if (this.x > this.manager.canvas.width || this.x < 0) {
+      this.directionX = -this.directionX;
+    }
+    if (this.y > this.manager.canvas.height || this.y < 0) {
+      this.directionY = -this.directionY;
+    }
+
+    // 마우스 인터랙션 (부드러운 밀쳐내기 효과)
+    let dx = this.manager.mouse.x - this.x;
+    let dy = this.manager.mouse.y - this.y;
+    let distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (this.manager.mouse.x != null && distance < this.manager.mouse.radius) {
+      // 마우스 반대편으로 부드럽게 밀쳐내기 (Shake 제거, Repel만 남김)
+      const forceDirectionX = dx / distance;
+      const forceDirectionY = dy / distance;
+      const force = (this.manager.mouse.radius - distance) / this.manager.mouse.radius;
+      const directionX = forceDirectionX * force * 2; // 부드럽게 반응하도록 속도 조절
+      const directionY = forceDirectionY * force * 2;
+      this.x -= directionX;
+      this.y -= directionY;
+    } else {
+      // 마우스가 멀어지면 원래 궤도로 서서히 복귀
+      if (this.x !== this.baseX) {
+        let dxBase = this.x - this.baseX;
+        this.x -= dxBase / 100;
+      }
+      if (this.y !== this.baseY) {
+        let dyBase = this.y - this.baseY;
+        this.y -= dyBase / 100;
+      }
+    }
+
+    // 기본 이동
+    this.baseX += this.directionX;
+    this.baseY += this.directionY;
+    this.x += this.directionX;
+    this.y += this.directionY;
+    
+    this.draw();
+  }
+}
+
+/* ==========================================================================
+   11. 애플리케이션 초기화 (Init Runner)
    ========================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
   // 푸터 저작권 현재 연도 자동 갱신
@@ -781,6 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
   TypingEffectManager.init();
   ProjectsManager.init();
   ContactFormManager.init();
+  ParticleManager.init();
 
-  console.log('🚀 Portfolio App successfully initialized with Vanilla JS!');
+  console.log('🚀 Portfolio App successfully initialized with Vanilla JS & Canvas Particles!');
 });
