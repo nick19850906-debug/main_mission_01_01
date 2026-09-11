@@ -554,7 +554,7 @@ ul {
   width: 0%;
   background: linear-gradient(90deg, var(--primary-color), var(--accent-color), #ec4899);
   box-shadow: 0 0 10px var(--primary-glow);
-  transition: width 0.08s ease-out;
+  transition: width 0.05s linear;
   z-index: 1001;
   pointer-events: none;
 }

@@ -205,28 +205,52 @@ const ThemeManager = {
    ========================================================================== */
 
 /**
- * 부드러운 스크롤 엔진 (모멘텀 휠 스크롤 및 앵커 Easing 스크롤)
+ * 부드러운 스크롤 엔진 (리니어한 속도의 편안한 앵커 스크롤 & 네이티브 휠 최적화)
  */
 const SmoothScrollManager = {
   HEADER_OFFSET: 76, // 고정 헤더 높이(72px) + 여유 간격(4px)
   animationFrameId: null,
-
-  // 마우스 휠 관성 스크롤 상태
-  wheelTargetY: 0,
-  wheelCurrentY: 0,
-  isWheelRunning: false,
+  isAnimating: false,
 
   init() {
-    this.wheelTargetY = window.scrollY;
-    this.wheelCurrentY = window.scrollY;
-
     this.bindAnchorLinks();
-    this.bindWheelInertia();
     this.bindScrollProgress();
+    this.bindInterruptEvents();
   },
 
   /**
-   * 1. 사이트 내 모든 내부 앵커 링크(#)에 대해 부드러운 감속 스크롤 적용
+   * 사용자가 스크롤 도중 휠/터치/키보드로 개입 시 애니메이션을 즉시 중단하고 제어권을 사용자에게 반환
+   */
+  bindInterruptEvents() {
+    const stopAnimation = () => {
+      if (this.isAnimating) {
+        this.stop();
+      }
+    };
+
+    window.addEventListener('wheel', stopAnimation, { passive: true });
+    window.addEventListener('touchstart', stopAnimation, { passive: true });
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Space', 'Home', 'End'].includes(e.code)) {
+        stopAnimation();
+      }
+    }, { passive: true });
+  },
+
+  /**
+   * 진행 중인 스크롤 애니메이션 취소 및 스타일 원복
+   */
+  stop() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    this.isAnimating = false;
+    document.documentElement.style.scrollBehavior = '';
+  },
+
+  /**
+   * 1. 사이트 내 모든 내부 앵커 링크(#)에 대해 리니어 부드러운 스크롤 적용
    */
   bindAnchorLinks() {
     document.addEventListener('click', (e) => {
@@ -234,7 +258,7 @@ const SmoothScrollManager = {
       if (!anchor) return;
 
       const href = anchor.getAttribute('href');
-      // 빈 앵커이거나 '#hero'인 경우 최상단으로 부드럽게 이동
+      // 빈 앵커이거나 '#hero'인 경우 최상단으로 이동
       if (href === '#' || href === '#hero') {
         e.preventDefault();
         this.scrollTo(0);
@@ -256,21 +280,22 @@ const SmoothScrollManager = {
   },
 
   /**
-   * 특정 DOM 요소로 헤더 높이를 감안하여 부드럽게 스크롤
+   * 특정 DOM 요소로 헤더 높이를 감안하여 리니어하게 부드러운 스크롤
    */
-  scrollToElement(element, duration = 700) {
+  scrollToElement(element, customDuration = null) {
     const rect = element.getBoundingClientRect();
     const targetY = Math.max(0, rect.top + window.scrollY - this.HEADER_OFFSET);
-    this.scrollTo(targetY, duration);
+    this.scrollTo(targetY, customDuration);
   },
 
   /**
-   * Cubic EaseInOut 곡선을 활용한 커스텀 감속 스크롤 애니메이션
+   * 리니어(Linear) 속도 기반의 편안하고 부드러운 스크롤 엔진
+   * - 거리에 비례하여 자연스러운 지속시간(duration) 자동 계산
+   * - 처음부터 끝까지 균일한 속도로 이동하여 '느렸다가 급가속'되는 이질감과 어지러움 완전 제거
+   * - CSS scroll-behavior와의 이중 보간 충돌 방지를 위해 애니메이션 동안 scrollBehavior를 auto로 제어
    */
-  scrollTo(targetY, duration = 700) {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
+  scrollTo(targetY, customDuration = null) {
+    this.stop();
 
     const startY = window.scrollY;
     const distance = targetY - startY;
@@ -278,37 +303,36 @@ const SmoothScrollManager = {
     // 이동 거리가 매우 작으면 즉시 이동
     if (Math.abs(distance) < 4) {
       window.scrollTo(0, targetY);
-      this.wheelTargetY = targetY;
-      this.wheelCurrentY = targetY;
       return;
     }
 
-    let startTime = null;
+    // 거리에 비례한 최적의 시간(duration) 산출 (최소 260ms, 최대 650ms, 균일하고 편안한 리니어 속도감 유지)
+    const duration = customDuration !== null
+      ? customDuration
+      : Math.min(650, Math.max(260, Math.round(Math.abs(distance) * 0.32)));
 
-    // 부드러운 감속 가속(Cubic ease-in-out)
-    const easeInOutCubic = (t) => {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    };
+    let startTime = null;
+    this.isAnimating = true;
+
+    // CSS smooth scroll 충돌 방지 (프레임마다 브라우저가 이중 보간하여 느렸다가 빨라지는 현상 원천 차단)
+    document.documentElement.style.scrollBehavior = 'auto';
 
     const step = (currentTime) => {
+      if (!this.isAnimating) return;
+
       if (!startTime) startTime = currentTime;
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      const easedProgress = easeInOutCubic(progress);
 
-      const nextY = startY + distance * easedProgress;
+      // 균일하고 편안한 리니어(Linear) 보간: f(t) = t (일정한 속도로 이동)
+      const nextY = startY + distance * progress;
       window.scrollTo(0, nextY);
-
-      this.wheelTargetY = nextY;
-      this.wheelCurrentY = nextY;
 
       if (progress < 1) {
         this.animationFrameId = requestAnimationFrame(step);
       } else {
         window.scrollTo(0, targetY);
-        this.wheelTargetY = targetY;
-        this.wheelCurrentY = targetY;
-        this.animationFrameId = null;
+        this.stop();
       }
     };
 
@@ -316,76 +340,7 @@ const SmoothScrollManager = {
   },
 
   /**
-   * 2. 마우스 휠 관성 부드러운 스크롤 (Inertia Momentum)
-   */
-  bindWheelInertia() {
-    // 사용자가 줄임 애니메이션을 설정한 경우 네이티브 스크롤 유지
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
-
-    const onWheel = (e) => {
-      // 텍스트에어리어, 인풋, 수평 스크롤 컨테이너 내부에서는 기본 휠 유지
-      if (e.target.closest('textarea, input, select, pre')) return;
-
-      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-      if (maxScroll <= 0) return;
-
-      let delta = e.deltaY;
-      if (e.deltaMode === 1) delta *= 35; // Lines 단위 정규화
-      else if (e.deltaMode === 2) delta *= 600; // Pages 단위 정규화
-
-      // 터치패드의 미세 델타(|delta| < 12)는 부드러운 네이티브 동작 유지
-      if (Math.abs(delta) < 12) {
-        this.wheelTargetY = window.scrollY;
-        this.wheelCurrentY = window.scrollY;
-        return;
-      }
-
-      e.preventDefault();
-
-      // 목표 스크롤 위치 계산
-      this.wheelTargetY = Math.max(0, Math.min(maxScroll, this.wheelTargetY + delta));
-
-      if (!this.isWheelRunning) {
-        this.isWheelRunning = true;
-        this.runWheelInertia(maxScroll);
-      }
-    };
-
-    window.addEventListener('wheel', onWheel, { passive: false });
-
-    // 터치 시작 시 관성 휠 중단 및 좌표 동기화
-    window.addEventListener('touchstart', () => {
-      this.isWheelRunning = false;
-      this.wheelTargetY = window.scrollY;
-      this.wheelCurrentY = window.scrollY;
-    }, { passive: true });
-  },
-
-  runWheelInertia(maxScroll) {
-    const lerp = (start, end, factor) => start + (end - start) * factor;
-
-    const loop = () => {
-      if (!this.isWheelRunning) return;
-
-      this.wheelCurrentY = lerp(this.wheelCurrentY, this.wheelTargetY, 0.085);
-      window.scrollTo(0, this.wheelCurrentY);
-
-      if (Math.abs(this.wheelTargetY - this.wheelCurrentY) > 0.6) {
-        requestAnimationFrame(loop);
-      } else {
-        window.scrollTo(0, this.wheelTargetY);
-        this.wheelCurrentY = this.wheelTargetY;
-        this.isWheelRunning = false;
-      }
-    };
-
-    requestAnimationFrame(loop);
-  },
-
-  /**
-   * 3. 상단 스크롤 진행 인디케이터 바 갱신
+   * 2. 상단 스크롤 진행 인디케이터 바 갱신
    */
   bindScrollProgress() {
     window.addEventListener('scroll', () => {
@@ -435,7 +390,7 @@ const NavigationManager = {
   },
 
   onScrollTopClick() {
-    SmoothScrollManager.scrollTo(0, 800);
+    SmoothScrollManager.scrollTo(0);
   },
 
   /**
