@@ -5,7 +5,7 @@
 
 [![Live Demo 배포 사이트](https://img.shields.io/badge/🌐_배포_웹사이트-Live_Demo_열기-2563eb?style=for-the-badge&logo=googlechrome&logoColor=white)](https://nick19850906-debug.github.io/main_mission_01_01/)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/nick19850906-debug/main_mission_01_01)
-
+                                  
 📍 **배포 웹사이트 URL**: [https://nick19850906-debug.github.io/main_mission_01_01/](https://nick19850906-debug.github.io/main_mission_01_01/)  
 📍 **GitHub 원격 저장소**: [https://github.com/nick19850906-debug/main_mission_01_01](https://github.com/nick19850906-debug/main_mission_01_01)
 
@@ -202,3 +202,9 @@ python3 -m http.server 8080
 3. **Build and deployment > Source**에서 **"Deploy from a branch"** 선택
 4. **Branch**를 `main` 브랜치, 폴더는 `/ (root)`로 선택하고 **[Save]** 클릭
 5. 약 1~2분 후 페이지 상단에 **"Your site is live at https://nick19850906-debug.github.io/main_mission_01_01/"** 메시지가 뜨며 전 세계에 배포가 완료됩니다! 🎉
+
+---
+
+## 7. 업데이트 내역
+
+- **2026.09.11**: About 섹션 왼쪽 인물 사진(profile_about.jpg) 업데이트
