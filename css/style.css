@@ -55,6 +55,7 @@
   /* 타이포그래피 & 레이아웃 */
   --font-main: 'Noto Sans KR', sans-serif;
   --font-heading: 'Outfit', sans-serif;
+  --font-code: 'Fira Code', 'JetBrains Mono', Consolas, Monaco, monospace;
   --header-height: 72px;
   --container-max-width: 1140px;
   --radius-sm: 8px;
@@ -63,6 +64,20 @@
   --radius-full: 9999px;
   --transition-fast: 0.2s ease;
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 백그라운드 플로팅 코드 신택스 색상 (라이트 모드) */
+  --code-bg: rgba(255, 255, 255, 0.7);
+  --code-border: rgba(203, 213, 225, 0.75);
+  --code-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --code-tag: #e11d48;
+  --code-attr: #7c3aed;
+  --code-prop: #0284c7;
+  --code-val: #059669;
+  --code-kw: #9333ea;
+  --code-fn: #d97706;
+  --code-str: #15803d;
+  --code-punct: #64748b;
+  --code-text: #334155;
 }
 
 /*
@@ -91,6 +106,20 @@
   --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.5);
   --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.6);
   --error-bg: rgba(239, 68, 68, 0.15);
+
+  /* 백그라운드 플로팅 코드 신택스 색상 (다크 모드) */
+  --code-bg: rgba(15, 23, 42, 0.7);
+  --code-border: rgba(99, 102, 241, 0.3);
+  --code-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --code-tag: #f43f5e;
+  --code-attr: #c084fc;
+  --code-prop: #38bdf8;
+  --code-val: #34d399;
+  --code-kw: #a855f7;
+  --code-fn: #fbbf24;
+  --code-str: #4ade80;
+  --code-punct: #94a3b8;
+  --code-text: #e2e8f0;
 }
 
 /* ==========================================================================
@@ -120,15 +149,238 @@ body {
   overflow-x: hidden;
 }
 
-/* 인터랙티브 백그라운드 파티클 캔버스 */
+/* ==========================================================================
+   인터랙티브 백그라운드 효과 (Canvas 파티클 & 플로팅 코드 시스템)
+   ========================================================================== */
 #particle-canvas {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: -1;
+  z-index: -2;
   pointer-events: none; /* 클릭 막힘 방지 */
+}
+
+/* 플로팅 코드 컨테이너 (고정 전체화면 배경 레이어) */
+.floating-code-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  perspective: 1200px;
+}
+
+/* 플로팅 코드 개별 요소 외측 래퍼 (위치 & 마우스 패럴랙스 전용) */
+.floating-code-item {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-code);
+  white-space: nowrap;
+  opacity: 0.32;
+  transition: opacity var(--transition-normal);
+  will-change: transform;
+}
+
+/* 다크 모드에서는 더욱 선명하고 신비로운 네온 발광 */
+[data-theme="dark"] .floating-code-item {
+  opacity: 0.45;
+}
+
+/* 내측 요소 (부유 키프레임 애니메이션 및 디자인 전용) */
+.floating-code-inner {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* 1. 코드 칩 (단일 라인 HTML 태그, CSS 속성, JS 구문 뱃지) */
+.code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-full);
+  background: var(--code-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--code-border);
+  box-shadow: var(--code-shadow);
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--code-text);
+  letter-spacing: -0.01em;
+}
+
+.code-chip .chip-lang {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.code-chip.lang-html .chip-lang {
+  background: rgba(225, 29, 72, 0.15);
+  color: var(--code-tag);
+}
+
+.code-chip.lang-css .chip-lang {
+  background: rgba(2, 132, 199, 0.15);
+  color: var(--code-prop);
+}
+
+.code-chip.lang-js .chip-lang {
+  background: rgba(217, 119, 6, 0.18);
+  color: var(--code-fn);
+}
+
+/* 2. 코드 스니펫 카드 (여러 줄의 미니 코드 에디터 박스) */
+.code-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1.1rem;
+  border-radius: var(--radius-md);
+  background: var(--code-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--code-border);
+  box-shadow: var(--code-shadow);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--code-text);
+}
+
+.code-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px dashed var(--code-border);
+}
+
+.code-card-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.code-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dot-red { background: #ef4444; }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: #10b981; }
+
+.code-card-title {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.code-card pre {
+  margin: 0;
+  font-family: inherit;
+  overflow: visible;
+}
+
+/* 신택스 하이라이팅 색상 클래스 */
+.syntax-tag { color: var(--code-tag); font-weight: 600; }
+.syntax-attr { color: var(--code-attr); }
+.syntax-prop { color: var(--code-prop); }
+.syntax-val { color: var(--code-val); }
+.syntax-kw { color: var(--code-kw); font-weight: 600; }
+.syntax-fn { color: var(--code-fn); }
+.syntax-str { color: var(--code-str); }
+.syntax-punct { color: var(--code-punct); }
+.syntax-comment { color: var(--text-muted); font-style: italic; }
+
+/* 4가지 다양한 주기의 자연스러운 부유 애니메이션 */
+.floating-anim-1 {
+  animation: floatDrift1 20s ease-in-out infinite alternate;
+}
+.floating-anim-2 {
+  animation: floatDrift2 24s ease-in-out infinite alternate;
+}
+.floating-anim-3 {
+  animation: floatDrift3 28s ease-in-out infinite alternate;
+}
+.floating-anim-4 {
+  animation: floatDrift4 22s ease-in-out infinite alternate;
+}
+
+@keyframes floatDrift1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(32px, -36px) rotate(2.5deg);
+  }
+  100% {
+    transform: translate(-24px, 32px) rotate(-2deg);
+  }
+}
+
+@keyframes floatDrift2 {
+  0% {
+    transform: translate(0, 0) rotate(-2deg);
+  }
+  50% {
+    transform: translate(-36px, 28px) rotate(2deg);
+  }
+  100% {
+    transform: translate(28px, -32px) rotate(-1.5deg);
+  }
+}
+
+@keyframes floatDrift3 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(24px, 34px) scale(1.03) rotate(-2deg);
+  }
+  100% {
+    transform: translate(-28px, -24px) scale(0.97) rotate(2deg);
+  }
+}
+
+@keyframes floatDrift4 {
+  0% {
+    transform: translate(0, 0) rotate(1.5deg);
+  }
+  50% {
+    transform: translate(-28px, -34px) rotate(-2deg);
+  }
+  100% {
+    transform: translate(32px, 24px) rotate(2.5deg);
+  }
+}
+
+/* 모바일 & 태블릿 반응형 스타일 최적화 */
+@media (max-width: 768px) {
+  .floating-code-item {
+    opacity: 0.18;
+  }
+  [data-theme="dark"] .floating-code-item {
+    opacity: 0.24;
+  }
+  .code-chip {
+    font-size: 0.72rem;
+    padding: 0.28rem 0.65rem;
+  }
+  .code-card {
+    font-size: 0.7rem;
+    padding: 0.5rem 0.8rem;
+  }
 }
 
 img {
@@ -291,6 +543,20 @@ ul {
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   box-shadow: var(--shadow-md);
   border-bottom: 1px solid var(--border-color);
+}
+
+/* 상단 스크롤 진행 인디케이터 바 */
+.scroll-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color), #ec4899);
+  box-shadow: 0 0 10px var(--primary-glow);
+  transition: width 0.08s ease-out;
+  z-index: 1001;
+  pointer-events: none;
 }
 
 /*

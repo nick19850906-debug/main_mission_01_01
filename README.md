@@ -3,6 +3,12 @@
 > **"도구에 휘둘리지 않고, 브라우저의 기본 원리로 웹을 이해하다."**  
 > 외부 프레임워크나 라이브러리(React, Vue, jQuery, Bootstrap, Tailwind 등) 없이 순수 **HTML5, CSS3, ES6+ JavaScript**만으로 제작된 반응형 포트폴리오 웹사이트입니다.
 
+[![Live Demo 배포 사이트](https://img.shields.io/badge/🌐_배포_웹사이트-Live_Demo_열기-2563eb?style=for-the-badge&logo=googlechrome&logoColor=white)](https://nick19850906-debug.github.io/main_mission_01_01/)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/nick19850906-debug/main_mission_01_01)
+
+📍 **배포 웹사이트 URL**: [https://nick19850906-debug.github.io/main_mission_01_01/](https://nick19850906-debug.github.io/main_mission_01_01/)  
+📍 **GitHub 원격 저장소**: [https://github.com/nick19850906-debug/main_mission_01_01](https://github.com/nick19850906-debug/main_mission_01_01)
+
 ---
 
 ## 📌 목차
@@ -65,11 +71,10 @@ anti_gravity_mission_01/
 | :--- | :--- | :--- |
 | **반응형 디자인** | 스마트폰, 태블릿, 데스크톱 레이아웃 | Mobile First (`768px`, `1024px`) / *[검증: 기기별 레이아웃 체크리스트 완료]* |
 | **웹 접근성(a11y)** | 키보드 및 스크린 리더 호환 | 최상단 스킵 네비게이션, 최소 터치 표적(44px) 확보, `aria-pressed` 토글 상태 동기화 |
-| **부드러운 스크롤** | 네비게이션 앵커 부드러운 스크롤 | `scrollIntoView({ behavior: 'smooth' })` 적용 |
+| **부드러운 스크롤 엔진** | 관성 휠 스크롤 & 정밀 앵커 Easing | **SmoothScrollManager**(Cubic EaseInOut 감속 곡선, 고정 헤더 높이 자동 보정, 마우스 휠 관성 모멘텀) 및 상단 스크롤 진행 바 구현 |
 | **스크롤 이벤트** | 헤더 블러 전환 / Scroll Spy 등 | 성능 저하 방지를 위한 **Throttle(100ms)** 적용 |
 | **다크 모드** | 라이트/다크 테마 전환 보존 | `localStorage` + OS 테마 자동 감지 (`prefers-color-scheme`) |
-| **스크롤 애니메이션**| 요소 등장 시 Fade-in 인터랙션 | **Intersection Observer** (성능 최적화를 위해 1회 등장 후 관찰 `unobserve` 해제) |
-| **파티클 물리 엔진** | 캔버스 기반의 동적 백그라운드 | **Canvas API** 활용, 마우스 위치에 따라 부드럽게 반응(Repel)하는 파티클 렌더링 |
+| **파티클 & 플로팅 코드 엔진** | 캔버스 파티클 + HTML/CSS/JS 부유 배경 | **Canvas API**(점/코드기호 파티클 + 네온 글로우) 및 **DOM 기반 플로팅 코드 시스템**(글래스모피즘 칩/카드 + 마우스 3D 패럴랙스) 구현 |
 | **심미적 애니메이션**| 마우스 추적 및 맥동(Pulse) 효과 | 카드 Hover 시 비선형적으로 퍼지는 `box-shadow` 글로우 및 `radial-gradient` 트래킹 |
 | **GitHub API 연동** | 저장소 목록 비동기 호출 | `AbortController`(8초 타임아웃) 및 연속 에러 방지를 위한 3회 재시도(Retry) 제한 로직 구현 |
 | **폼 유효성 검사** | 프론트엔드 실시간 밸리데이션 | *※ 백엔드 연동 시 서버의 검증 실패(예: 400 Bad Request)에 대한 에러 폴백 처리 병행 필수* |

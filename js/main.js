@@ -123,6 +123,10 @@ const DOM = {
   groupEmail: document.getElementById('group-email'),
   groupMessage: document.getElementById('group-message'),
   
+  // 백그라운드 및 스크롤 인디케이터
+  floatingCodeContainer: document.getElementById('floating-code-container'),
+  scrollProgressBar: document.getElementById('scroll-progress-bar'),
+
   // Footer
   currentYearSpan: document.getElementById('current-year')
 };
@@ -184,26 +188,236 @@ const ThemeManager = {
     DOM.html.setAttribute('data-theme', AppState.theme);
     DOM.themeToggleBtn.setAttribute('title', `현재: ${AppState.theme === 'dark' ? '다크 모드' : '라이트 모드'}`);
     DOM.themeToggleBtn.setAttribute('aria-pressed', AppState.theme === 'dark' ? 'true' : 'false');
+    
+    // 테마 전환 시 파티클 색상 동적 업데이트
+    if (typeof ParticleManager !== 'undefined' && ParticleManager.onThemeChange) {
+      ParticleManager.onThemeChange();
+    }
   }
 };
 
 /* ==========================================================================
-   4. 네비게이션 & 스크롤 인터랙션 모듈
-   - 햄버거 메뉴 토글
-   - 네비게이션 메뉴 클릭 시 부드러운 스크롤 이동
-   - 60px 이상 스크롤 시 헤더 배경 블러 전환 (README에 기준값 명시)
-   - 300px 이상 스크롤 시 스크롤탑 버튼 노출 (README에 기준값 명시)
-   - 현재 보고 있는 섹션의 메뉴 활성화 (Scroll Spy)
+   4. 부드러운 스크롤 & 네비게이션 인터랙션 모듈 (Smooth Scroll & Nav Engine)
+   - 1) 모든 내부 해시 앵커(#) 링크 클릭 시 고정 헤더 높이를 감안한 정밀 감속 스크롤
+   - 2) 일반 마우스 휠 부드러운 관성 스크롤 (Inertia Momentum Smooth Scroll)
+   - 3) 상단 스크롤 진행 바(Scroll Progress Bar) 실시간 동기화
+   - 4) 헤더 블러 전환, 스크롤탑 버튼, Scroll Spy(섹션 활성화)
    ========================================================================== */
+
+/**
+ * 부드러운 스크롤 엔진 (모멘텀 휠 스크롤 및 앵커 Easing 스크롤)
+ */
+const SmoothScrollManager = {
+  HEADER_OFFSET: 76, // 고정 헤더 높이(72px) + 여유 간격(4px)
+  animationFrameId: null,
+
+  // 마우스 휠 관성 스크롤 상태
+  wheelTargetY: 0,
+  wheelCurrentY: 0,
+  isWheelRunning: false,
+
+  init() {
+    this.wheelTargetY = window.scrollY;
+    this.wheelCurrentY = window.scrollY;
+
+    this.bindAnchorLinks();
+    this.bindWheelInertia();
+    this.bindScrollProgress();
+  },
+
+  /**
+   * 1. 사이트 내 모든 내부 앵커 링크(#)에 대해 부드러운 감속 스크롤 적용
+   */
+  bindAnchorLinks() {
+    document.addEventListener('click', (e) => {
+      const anchor = e.target.closest('a[href^="#"]');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href');
+      // 빈 앵커이거나 '#hero'인 경우 최상단으로 부드럽게 이동
+      if (href === '#' || href === '#hero') {
+        e.preventDefault();
+        this.scrollTo(0);
+        NavigationManager.closeMobileMenu();
+        if (history.pushState) history.pushState(null, '', '#hero');
+        return;
+      }
+
+      if (href.length > 1) {
+        const targetElement = document.querySelector(href);
+        if (targetElement) {
+          e.preventDefault();
+          this.scrollToElement(targetElement);
+          NavigationManager.closeMobileMenu();
+          if (history.pushState) history.pushState(null, '', href);
+        }
+      }
+    });
+  },
+
+  /**
+   * 특정 DOM 요소로 헤더 높이를 감안하여 부드럽게 스크롤
+   */
+  scrollToElement(element, duration = 700) {
+    const rect = element.getBoundingClientRect();
+    const targetY = Math.max(0, rect.top + window.scrollY - this.HEADER_OFFSET);
+    this.scrollTo(targetY, duration);
+  },
+
+  /**
+   * Cubic EaseInOut 곡선을 활용한 커스텀 감속 스크롤 애니메이션
+   */
+  scrollTo(targetY, duration = 700) {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+
+    const startY = window.scrollY;
+    const distance = targetY - startY;
+
+    // 이동 거리가 매우 작으면 즉시 이동
+    if (Math.abs(distance) < 4) {
+      window.scrollTo(0, targetY);
+      this.wheelTargetY = targetY;
+      this.wheelCurrentY = targetY;
+      return;
+    }
+
+    let startTime = null;
+
+    // 부드러운 감속 가속(Cubic ease-in-out)
+    const easeInOutCubic = (t) => {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    };
+
+    const step = (currentTime) => {
+      if (!startTime) startTime = currentTime;
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeInOutCubic(progress);
+
+      const nextY = startY + distance * easedProgress;
+      window.scrollTo(0, nextY);
+
+      this.wheelTargetY = nextY;
+      this.wheelCurrentY = nextY;
+
+      if (progress < 1) {
+        this.animationFrameId = requestAnimationFrame(step);
+      } else {
+        window.scrollTo(0, targetY);
+        this.wheelTargetY = targetY;
+        this.wheelCurrentY = targetY;
+        this.animationFrameId = null;
+      }
+    };
+
+    this.animationFrameId = requestAnimationFrame(step);
+  },
+
+  /**
+   * 2. 마우스 휠 관성 부드러운 스크롤 (Inertia Momentum)
+   */
+  bindWheelInertia() {
+    // 사용자가 줄임 애니메이션을 설정한 경우 네이티브 스크롤 유지
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    const onWheel = (e) => {
+      // 텍스트에어리어, 인풋, 수평 스크롤 컨테이너 내부에서는 기본 휠 유지
+      if (e.target.closest('textarea, input, select, pre')) return;
+
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      if (maxScroll <= 0) return;
+
+      let delta = e.deltaY;
+      if (e.deltaMode === 1) delta *= 35; // Lines 단위 정규화
+      else if (e.deltaMode === 2) delta *= 600; // Pages 단위 정규화
+
+      // 터치패드의 미세 델타(|delta| < 12)는 부드러운 네이티브 동작 유지
+      if (Math.abs(delta) < 12) {
+        this.wheelTargetY = window.scrollY;
+        this.wheelCurrentY = window.scrollY;
+        return;
+      }
+
+      e.preventDefault();
+
+      // 목표 스크롤 위치 계산
+      this.wheelTargetY = Math.max(0, Math.min(maxScroll, this.wheelTargetY + delta));
+
+      if (!this.isWheelRunning) {
+        this.isWheelRunning = true;
+        this.runWheelInertia(maxScroll);
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false });
+
+    // 터치 시작 시 관성 휠 중단 및 좌표 동기화
+    window.addEventListener('touchstart', () => {
+      this.isWheelRunning = false;
+      this.wheelTargetY = window.scrollY;
+      this.wheelCurrentY = window.scrollY;
+    }, { passive: true });
+  },
+
+  runWheelInertia(maxScroll) {
+    const lerp = (start, end, factor) => start + (end - start) * factor;
+
+    const loop = () => {
+      if (!this.isWheelRunning) return;
+
+      this.wheelCurrentY = lerp(this.wheelCurrentY, this.wheelTargetY, 0.085);
+      window.scrollTo(0, this.wheelCurrentY);
+
+      if (Math.abs(this.wheelTargetY - this.wheelCurrentY) > 0.6) {
+        requestAnimationFrame(loop);
+      } else {
+        window.scrollTo(0, this.wheelTargetY);
+        this.wheelCurrentY = this.wheelTargetY;
+        this.isWheelRunning = false;
+      }
+    };
+
+    requestAnimationFrame(loop);
+  },
+
+  /**
+   * 3. 상단 스크롤 진행 인디케이터 바 갱신
+   */
+  bindScrollProgress() {
+    window.addEventListener('scroll', () => {
+      this.updateProgressBar();
+    }, { passive: true });
+    this.updateProgressBar();
+  },
+
+  updateProgressBar() {
+    if (!DOM.scrollProgressBar) return;
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    if (maxScroll <= 0) {
+      DOM.scrollProgressBar.style.width = '0%';
+      return;
+    }
+    const progress = Math.min(Math.max((window.scrollY / maxScroll) * 100, 0), 100);
+    DOM.scrollProgressBar.style.width = `${progress}%`;
+  }
+};
+
+/**
+ * 네비게이션 & UI 스크롤 인터랙션 매니저
+ */
 const NavigationManager = {
   HEADER_SCROLL_THRESHOLD: 60, // 헤더 스타일 전환 기준 스크롤 높이 (px)
   SCROLL_TOP_THRESHOLD: 300,   // 스크롤탑 버튼 표시 기준 스크롤 높이 (px)
 
   init() {
-    // 이벤트 핸들러를 명명된 함수로 분리
+    // 이벤트 핸들러 바인딩
     this.handleHamburgerClick = this.toggleMobileMenu.bind(this);
-    this.handleNavLinkClick = this.onNavLinkClick.bind(this);
     this.handleScrollTopClick = this.onScrollTopClick.bind(this);
+
     // 스크롤 성능 향상을 위한 Throttle 적용 (100ms)
     this.throttledScroll = throttle(() => {
       this.handleScroll();
@@ -213,32 +427,15 @@ const NavigationManager = {
     // 1. 모바일 햄버거 메뉴 토글 이벤트
     DOM.hamburgerBtn.addEventListener('click', this.handleHamburgerClick);
 
-    // 2. 네비게이션 메뉴 앵커 링크 클릭
-    DOM.navLinks.forEach((link) => {
-      link.addEventListener('click', this.handleNavLinkClick);
-    });
-
-    // 3. 스크롤탑 버튼
+    // 2. 스크롤탑 버튼
     DOM.scrollTopBtn.addEventListener('click', this.handleScrollTopClick);
 
-    // 4. 윈도우 스크롤 이벤트 감지 (Throttling 적용)
+    // 3. 윈도우 스크롤 이벤트 감지 (Throttling 적용)
     window.addEventListener('scroll', this.throttledScroll, { passive: true });
   },
 
-  onNavLinkClick(e) {
-    e.preventDefault();
-    const link = e.currentTarget;
-    const targetId = link.getAttribute('href');
-    const targetSection = document.querySelector(targetId);
-
-    if (targetSection) {
-      targetSection.scrollIntoView({ behavior: 'smooth' });
-    }
-    this.closeMobileMenu();
-  },
-
   onScrollTopClick() {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    SmoothScrollManager.scrollTo(0, 800);
   },
 
   /**
@@ -247,7 +444,6 @@ const NavigationManager = {
   toggleMobileMenu() {
     const isActive = DOM.navMenu.classList.toggle('active');
     DOM.hamburgerBtn.classList.toggle('active');
-    // 접근성을 위한 aria-expanded 값 갱신
     DOM.hamburgerBtn.setAttribute('aria-expanded', String(isActive));
   },
 
@@ -282,7 +478,7 @@ const NavigationManager = {
    * 현재 뷰포트 내에 있는 섹션을 찾아 해당 nav-link에 active 클래스 부여
    */
   updateActiveNavLink() {
-    const scrollPosition = window.scrollY + 150; // 여유 오프셋
+    const scrollPosition = window.scrollY + 160; // 여유 오프셋
     const sections = document.querySelectorAll('section[id]');
 
     sections.forEach((section) => {
@@ -830,13 +1026,18 @@ const ContactFormManager = {
 };
 
 /* ==========================================================================
-   10. 인터랙티브 백그라운드 파티클 매니저 (Canvas API)
+   10. 인터랙티브 백그라운드 파티클 & 플로팅 코드 매니저
    ========================================================================== */
+
+/**
+ * 10-A. Canvas 파티클 매니저 (글로우 점 & 코드 기호 파티클)
+ */
 const ParticleManager = {
   canvas: null,
   ctx: null,
   particlesArray: [],
-  mouse: { x: null, y: null, radius: 100 },
+  mouse: { x: null, y: null, radius: 130 },
+  themeColors: null,
 
   init() {
     this.canvas = document.getElementById('particle-canvas');
@@ -845,10 +1046,12 @@ const ParticleManager = {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
 
+    this.updateThemeColors();
+
     // 마우스 이벤트 바인딩
     window.addEventListener('mousemove', (event) => {
-      this.mouse.x = event.x;
-      this.mouse.y = event.y;
+      this.mouse.x = event.clientX;
+      this.mouse.y = event.clientY;
     });
 
     window.addEventListener('resize', () => {
@@ -857,7 +1060,6 @@ const ParticleManager = {
       this.initParticles();
     });
 
-    // 마우스가 화면 밖으로 나가면 연결 해제
     window.addEventListener('mouseout', () => {
       this.mouse.x = undefined;
       this.mouse.y = undefined;
@@ -867,25 +1069,74 @@ const ParticleManager = {
     this.animate();
   },
 
+  updateThemeColors() {
+    const isDark = (AppState && AppState.theme === 'dark') || document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      this.themeColors = {
+        palette: [
+          'rgba(99, 102, 241, 0.7)',   // 인디고
+          'rgba(6, 182, 212, 0.75)',   // 시안
+          'rgba(168, 85, 247, 0.7)',   // 퍼플
+          'rgba(244, 63, 94, 0.65)'    // 로즈
+        ],
+        lineBase: '99, 102, 241',
+        symbolColor: 'rgba(148, 163, 184, 0.55)',
+        symbolHighlight: 'rgba(56, 189, 248, 0.75)'
+      };
+    } else {
+      this.themeColors = {
+        palette: [
+          'rgba(79, 70, 229, 0.5)',    // 인디고
+          'rgba(2, 132, 199, 0.55)',   // 스카이블루
+          'rgba(147, 51, 234, 0.45)',  // 바이올렛
+          'rgba(16, 185, 129, 0.45)'   // 에메랄드
+        ],
+        lineBase: '79, 70, 229',
+        symbolColor: 'rgba(100, 116, 139, 0.45)',
+        symbolHighlight: 'rgba(79, 70, 229, 0.65)'
+      };
+    }
+  },
+
+  onThemeChange() {
+    this.updateThemeColors();
+    if (!this.particlesArray) return;
+    this.particlesArray.forEach(p => {
+      p.updateTheme(this.themeColors);
+    });
+  },
+
   initParticles() {
     this.particlesArray = [];
-    const numberOfParticles = (this.canvas.width * this.canvas.height) / 9000;
-    for (let i = 0; i < numberOfParticles; i++) {
-      const size = (Math.random() * 2) + 1;
-      const x = (Math.random() * ((this.canvas.width - size * 2) - (size * 2)) + size * 2);
-      const y = (Math.random() * ((this.canvas.height - size * 2) - (size * 2)) + size * 2);
-      const directionX = (Math.random() * 1) - 0.5;
-      const directionY = (Math.random() * 1) - 0.5;
-      // 반투명 회색톤 설정 (다크/라이트 모두 어울림)
-      const color = 'rgba(128, 128, 128, 0.4)';
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    
+    // 화면 크기에 비례하여 적정 개수 산정 (모바일 과부하 방지)
+    const numberOfParticles = Math.min(Math.floor((width * height) / 11000), 100);
+    const symbols = ['</>', '{ }', '=>', '//', '&&', '===', '/* */', '01', 'px', 'div', 'async', 'git'];
 
-      this.particlesArray.push(new Particle(x, y, directionX, directionY, size, color, this));
+    for (let i = 0; i < numberOfParticles; i++) {
+      const isSymbol = i % 4 === 0; // 25%는 작은 코드 기호 파티클
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      const directionX = (Math.random() * 0.8) - 0.4;
+      const directionY = (Math.random() * 0.8) - 0.4;
+
+      if (isSymbol) {
+        const symbolText = symbols[Math.floor(Math.random() * symbols.length)];
+        this.particlesArray.push(new CodeSymbolParticle(x, y, directionX, directionY, symbolText, this));
+      } else {
+        const size = (Math.random() * 2.2) + 1.2;
+        const color = this.themeColors.palette[Math.floor(Math.random() * this.themeColors.palette.length)];
+        this.particlesArray.push(new DotParticle(x, y, directionX, directionY, size, color, this));
+      }
     }
   },
 
   animate() {
     requestAnimationFrame(this.animate.bind(this));
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
     for (let i = 0; i < this.particlesArray.length; i++) {
       this.particlesArray[i].update();
     }
@@ -893,19 +1144,42 @@ const ParticleManager = {
   },
 
   connect() {
-    let opacityValue = 1;
+    const lineBase = this.themeColors.lineBase;
+    const maxDist = 120;
+    const maxDistSq = maxDist * maxDist;
+
     for (let a = 0; a < this.particlesArray.length; a++) {
-      for (let b = a; b < this.particlesArray.length; b++) {
-        let distance = ((this.particlesArray[a].x - this.particlesArray[b].x) * (this.particlesArray[a].x - this.particlesArray[b].x))
-          + ((this.particlesArray[a].y - this.particlesArray[b].y) * (this.particlesArray[a].y - this.particlesArray[b].y));
-        
-        if (distance < (this.canvas.width / 7) * (this.canvas.height / 7)) {
-          opacityValue = 1 - (distance / 10000);
-          this.ctx.strokeStyle = `rgba(128, 128, 128, ${opacityValue * 0.2})`;
+      const pA = this.particlesArray[a];
+      for (let b = a + 1; b < this.particlesArray.length; b++) {
+        const pB = this.particlesArray[b];
+        const dx = pA.x - pB.x;
+        const dy = pA.y - pB.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < maxDistSq) {
+          const opacity = (1 - distSq / maxDistSq) * 0.22;
+          this.ctx.strokeStyle = `rgba(${lineBase}, ${opacity})`;
+          this.ctx.lineWidth = 0.8;
+          this.ctx.beginPath();
+          this.ctx.moveTo(pA.x, pA.y);
+          this.ctx.lineTo(pB.x, pB.y);
+          this.ctx.stroke();
+        }
+      }
+
+      // 마우스 커서와의 은은한 연결선
+      if (this.mouse.x != null) {
+        const mdx = pA.x - this.mouse.x;
+        const mdy = pA.y - this.mouse.y;
+        const mDistSq = mdx * mdx + mdy * mdy;
+        const mouseMaxSq = this.mouse.radius * this.mouse.radius;
+        if (mDistSq < mouseMaxSq) {
+          const mOpacity = (1 - mDistSq / mouseMaxSq) * 0.35;
+          this.ctx.strokeStyle = `rgba(${lineBase}, ${mOpacity})`;
           this.ctx.lineWidth = 1;
           this.ctx.beginPath();
-          this.ctx.moveTo(this.particlesArray[a].x, this.particlesArray[a].y);
-          this.ctx.lineTo(this.particlesArray[b].x, this.particlesArray[b].y);
+          this.ctx.moveTo(pA.x, pA.y);
+          this.ctx.lineTo(this.mouse.x, this.mouse.y);
           this.ctx.stroke();
         }
       }
@@ -913,7 +1187,10 @@ const ParticleManager = {
   }
 };
 
-class Particle {
+/**
+ * 일반 원형 점 파티클
+ */
+class DotParticle {
   constructor(x, y, directionX, directionY, size, color, manager) {
     this.x = x;
     this.y = y;
@@ -922,20 +1199,28 @@ class Particle {
     this.size = size;
     this.color = color;
     this.manager = manager;
-    // 원래 위치 복귀를 위한 베이스 좌표
     this.baseX = this.x;
     this.baseY = this.y;
+    this.pulse = Math.random() * Math.PI;
+  }
+
+  updateTheme(themeColors) {
+    this.color = themeColors.palette[Math.floor(Math.random() * themeColors.palette.length)];
   }
 
   draw() {
+    this.pulse += 0.03;
+    const currentSize = this.size + Math.sin(this.pulse) * 0.4;
     this.manager.ctx.beginPath();
-    this.manager.ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+    this.manager.ctx.arc(this.x, this.y, Math.max(0.5, currentSize), 0, Math.PI * 2, false);
     this.manager.ctx.fillStyle = this.color;
+    this.manager.ctx.shadowBlur = 6;
+    this.manager.ctx.shadowColor = this.color;
     this.manager.ctx.fill();
+    this.manager.ctx.shadowBlur = 0; // 섀도우 리셋
   }
 
   update() {
-    // 경계선 충돌 확인 및 방향 전환
     if (this.x > this.manager.canvas.width || this.x < 0) {
       this.directionX = -this.directionX;
     }
@@ -943,41 +1228,285 @@ class Particle {
       this.directionY = -this.directionY;
     }
 
-    // 마우스 인터랙션 (부드러운 밀쳐내기 효과)
-    let dx = this.manager.mouse.x - this.x;
-    let dy = this.manager.mouse.y - this.y;
-    let distance = Math.sqrt(dx * dx + dy * dy);
-    
-    if (this.manager.mouse.x != null && distance < this.manager.mouse.radius) {
-      // 마우스 반대편으로 부드럽게 밀쳐내기 (Shake 제거, Repel만 남김)
-      const forceDirectionX = dx / distance;
-      const forceDirectionY = dy / distance;
-      const force = (this.manager.mouse.radius - distance) / this.manager.mouse.radius;
-      const directionX = forceDirectionX * force * 2; // 부드럽게 반응하도록 속도 조절
-      const directionY = forceDirectionY * force * 2;
-      this.x -= directionX;
-      this.y -= directionY;
-    } else {
-      // 마우스가 멀어지면 원래 궤도로 서서히 복귀
-      if (this.x !== this.baseX) {
-        let dxBase = this.x - this.baseX;
-        this.x -= dxBase / 100;
-      }
-      if (this.y !== this.baseY) {
-        let dyBase = this.y - this.baseY;
-        this.y -= dyBase / 100;
+    // 마우스 반발 효과
+    if (this.manager.mouse.x != null) {
+      const dx = this.manager.mouse.x - this.x;
+      const dy = this.manager.mouse.y - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < this.manager.mouse.radius) {
+        const forceDirectionX = dx / distance;
+        const forceDirectionY = dy / distance;
+        const force = (this.manager.mouse.radius - distance) / this.manager.mouse.radius;
+        this.x -= forceDirectionX * force * 3;
+        this.y -= forceDirectionY * force * 3;
       }
     }
 
-    // 기본 이동
-    this.baseX += this.directionX;
-    this.baseY += this.directionY;
     this.x += this.directionX;
     this.y += this.directionY;
-    
     this.draw();
   }
 }
+
+/**
+ * 캔버스 상에서 직접 부유하는 작은 코드 기호 파티클
+ */
+class CodeSymbolParticle {
+  constructor(x, y, directionX, directionY, text, manager) {
+    this.x = x;
+    this.y = y;
+    this.directionX = directionX;
+    this.directionY = directionY;
+    this.text = text;
+    this.manager = manager;
+    this.angle = (Math.random() - 0.5) * 0.4;
+    this.opacity = 0.35 + Math.random() * 0.3;
+    this.fontSize = Math.floor(Math.random() * 3) + 10; // 10px ~ 12px
+    this.color = manager.themeColors.symbolHighlight;
+  }
+
+  updateTheme(themeColors) {
+    this.color = themeColors.symbolHighlight;
+  }
+
+  draw() {
+    this.manager.ctx.save();
+    this.manager.ctx.translate(this.x, this.y);
+    this.manager.ctx.rotate(this.angle);
+    this.manager.ctx.font = `${this.fontSize}px 'Fira Code', monospace`;
+    this.manager.ctx.fillStyle = this.color;
+    this.manager.ctx.fillText(this.text, 0, 0);
+    this.manager.ctx.restore();
+  }
+
+  update() {
+    if (this.x > this.manager.canvas.width || this.x < 0) {
+      this.directionX = -this.directionX;
+    }
+    if (this.y > this.manager.canvas.height || this.y < 0) {
+      this.directionY = -this.directionY;
+    }
+
+    if (this.manager.mouse.x != null) {
+      const dx = this.manager.mouse.x - this.x;
+      const dy = this.manager.mouse.y - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < this.manager.mouse.radius) {
+        const forceDirectionX = dx / distance;
+        const forceDirectionY = dy / distance;
+        const force = (this.manager.mouse.radius - distance) / this.manager.mouse.radius;
+        this.x -= forceDirectionX * force * 2.5;
+        this.y -= forceDirectionY * force * 2.5;
+      }
+    }
+
+    this.x += this.directionX;
+    this.y += this.directionY;
+    this.draw();
+  }
+}
+
+/**
+ * 10-B. 백그라운드 플로팅 코드 매니저 (HTML / CSS / JS 코드 조각 부유 시스템)
+ */
+const FloatingCodeManager = {
+  container: null,
+  mousePos: { x: 0, y: 0 },
+  targetOffset: { x: 0, y: 0 },
+  currentOffset: { x: 0, y: 0 },
+  items: [],
+
+  // HTML / CSS / JS 코드 조각 데이터셋
+  codeSnippets: [
+    // 1. HTML 인라인 칩들
+    {
+      type: 'chip',
+      lang: 'html',
+      html: '<span class="chip-lang">HTML</span><span class="syntax-punct">&lt;</span><span class="syntax-tag">div</span> <span class="syntax-attr">class</span><span class="syntax-punct">=</span><span class="syntax-str">"container"</span><span class="syntax-punct">&gt;</span>',
+      x: 6, y: 12, anim: 'floating-anim-1', delay: 0, depth: 0.04
+    },
+    {
+      type: 'chip',
+      lang: 'html',
+      html: '<span class="chip-lang">HTML</span><span class="syntax-punct">&lt;</span><span class="syntax-tag">canvas</span> <span class="syntax-attr">id</span><span class="syntax-punct">=</span><span class="syntax-str">"particle-canvas"</span><span class="syntax-punct">&gt;&lt;/</span><span class="syntax-tag">canvas</span><span class="syntax-punct">&gt;</span>',
+      x: 72, y: 18, anim: 'floating-anim-2', delay: 3, depth: 0.06
+    },
+    {
+      type: 'chip',
+      lang: 'html',
+      html: '<span class="chip-lang">HTML</span><span class="syntax-punct">&lt;</span><span class="syntax-tag">section</span> <span class="syntax-attr">id</span><span class="syntax-punct">=</span><span class="syntax-str">"projects"</span> <span class="syntax-attr">class</span><span class="syntax-punct">=</span><span class="syntax-str">"section"</span><span class="syntax-punct">&gt;</span>',
+      x: 10, y: 64, anim: 'floating-anim-3', delay: 1.5, depth: 0.05
+    },
+    {
+      type: 'chip',
+      lang: 'html',
+      html: '<span class="chip-lang">HTML</span><span class="syntax-punct">&lt;</span><span class="syntax-tag">span</span> <span class="syntax-attr">class</span><span class="syntax-punct">=</span><span class="syntax-str">"logo-symbol"</span><span class="syntax-punct">&gt;</span>&amp;lt;/&amp;gt;<span class="syntax-punct">&lt;/</span><span class="syntax-tag">span</span><span class="syntax-punct">&gt;</span>',
+      x: 82, y: 78, anim: 'floating-anim-4', delay: 4.5, depth: 0.03
+    },
+
+    // 2. CSS 인라인 칩들
+    {
+      type: 'chip',
+      lang: 'css',
+      html: '<span class="chip-lang">CSS</span><span class="syntax-prop">display</span><span class="syntax-punct">:</span> <span class="syntax-val">flex</span><span class="syntax-punct">;</span> <span class="syntax-prop">gap</span><span class="syntax-punct">:</span> <span class="syntax-val">1rem</span><span class="syntax-punct">;</span>',
+      x: 78, y: 38, anim: 'floating-anim-1', delay: 2, depth: 0.05
+    },
+    {
+      type: 'chip',
+      lang: 'css',
+      html: '<span class="chip-lang">CSS</span><span class="syntax-prop">backdrop-filter</span><span class="syntax-punct">:</span> <span class="syntax-val">blur(16px)</span><span class="syntax-punct">;</span>',
+      x: 15, y: 32, anim: 'floating-anim-4', delay: 5, depth: 0.07
+    },
+    {
+      type: 'chip',
+      lang: 'css',
+      html: '<span class="chip-lang">CSS</span><span class="syntax-prop">grid-template-columns</span><span class="syntax-punct">:</span> <span class="syntax-val">repeat(3, 1fr)</span><span class="syntax-punct">;</span>',
+      x: 65, y: 88, anim: 'floating-anim-2', delay: 1, depth: 0.04
+    },
+    {
+      type: 'chip',
+      lang: 'css',
+      html: '<span class="chip-lang">CSS</span><span class="syntax-prop">transform</span><span class="syntax-punct">:</span> <span class="syntax-val">translate3d(0, 0, 0)</span><span class="syntax-punct">;</span>',
+      x: 4, y: 82, anim: 'floating-anim-3', delay: 3.5, depth: 0.06
+    },
+
+    // 3. JS 인라인 칩들
+    {
+      type: 'chip',
+      lang: 'js',
+      html: '<span class="chip-lang">JS</span><span class="syntax-kw">const</span> [<span class="syntax-fn">theme</span>, <span class="syntax-fn">setTheme</span>] <span class="syntax-punct">=</span> <span class="syntax-fn">useState</span>(<span class="syntax-str">\'dark\'</span>)<span class="syntax-punct">;</span>',
+      x: 25, y: 8, anim: 'floating-anim-3', delay: 4, depth: 0.06
+    },
+    {
+      type: 'chip',
+      lang: 'js',
+      html: '<span class="chip-lang">JS</span><span class="syntax-fn">document</span>.<span class="syntax-fn">addEventListener</span>(<span class="syntax-str">\'DOMContentLoaded\'</span>, <span class="syntax-fn">init</span>)<span class="syntax-punct">;</span>',
+      x: 52, y: 6, anim: 'floating-anim-2', delay: 2.5, depth: 0.05
+    },
+    {
+      type: 'chip',
+      lang: 'js',
+      html: '<span class="chip-lang">JS</span><span class="syntax-kw">async</span> <span class="syntax-kw">function</span> <span class="syntax-fn">fetchRepos</span>() { <span class="syntax-kw">await</span> <span class="syntax-fn">api</span>; }',
+      x: 84, y: 55, anim: 'floating-anim-1', delay: 6, depth: 0.04
+    },
+    {
+      type: 'chip',
+      lang: 'js',
+      html: '<span class="chip-lang">JS</span><span class="syntax-fn">particles</span>.<span class="syntax-fn">map</span>(<span class="syntax-fn">p</span> <span class="syntax-punct">=&gt;</span> <span class="syntax-fn">p</span>.<span class="syntax-fn">update</span>())<span class="syntax-punct">;</span>',
+      x: 35, y: 92, anim: 'floating-anim-4', delay: 0.5, depth: 0.05
+    },
+
+    // 4. 멀티라인 코드 스니펫 카드 (HTML / CSS / JS 각각 1개씩)
+    {
+      type: 'card',
+      title: 'index.html',
+      html: `<div class="code-card-header">
+  <div class="code-card-dots"><span class="code-card-dot dot-red"></span><span class="code-card-dot dot-yellow"></span><span class="code-card-dot dot-green"></span></div>
+  <span class="code-card-title">HTML5 Component</span>
+</div>
+<pre><code><span class="syntax-punct">&lt;</span><span class="syntax-tag">header</span> <span class="syntax-attr">class</span><span class="syntax-punct">=</span><span class="syntax-str">"hero"</span><span class="syntax-punct">&gt;</span>
+  <span class="syntax-punct">&lt;</span><span class="syntax-tag">h1</span><span class="syntax-punct">&gt;</span>DevPortfolio<span class="syntax-punct">&lt;/</span><span class="syntax-tag">h1</span><span class="syntax-punct">&gt;</span>
+  <span class="syntax-punct">&lt;</span><span class="syntax-tag">p</span><span class="syntax-punct">&gt;</span>Frontend Engineer<span class="syntax-punct">&lt;/</span><span class="syntax-tag">p</span><span class="syntax-punct">&gt;</span>
+<span class="syntax-punct">&lt;/</span><span class="syntax-tag">header</span><span class="syntax-punct">&gt;</span></code></pre>`,
+      x: 5, y: 45, anim: 'floating-anim-1', delay: 1, depth: 0.05
+    },
+    {
+      type: 'card',
+      title: 'style.css',
+      html: `<div class="code-card-header">
+  <div class="code-card-dots"><span class="code-card-dot dot-red"></span><span class="code-card-dot dot-yellow"></span><span class="code-card-dot dot-green"></span></div>
+  <span class="code-card-title">CSS3 Styling</span>
+</div>
+<pre><code><span class="syntax-tag">.glass-morphism</span> {
+  <span class="syntax-prop">backdrop-filter</span><span class="syntax-punct">:</span> <span class="syntax-val">blur(16px)</span><span class="syntax-punct">;</span>
+  <span class="syntax-prop">box-shadow</span><span class="syntax-punct">:</span> <span class="syntax-val">0 8px 32px rgba(0,0,0,0.3)</span><span class="syntax-punct">;</span>
+}</code></pre>`,
+      x: 74, y: 68, anim: 'floating-anim-3', delay: 4, depth: 0.06
+    },
+    {
+      type: 'card',
+      title: 'app.js',
+      html: `<div class="code-card-header">
+  <div class="code-card-dots"><span class="code-card-dot dot-red"></span><span class="code-card-dot dot-yellow"></span><span class="code-card-dot dot-green"></span></div>
+  <span class="code-card-title">ES6+ Async</span>
+</div>
+<pre><code><span class="syntax-kw">const</span> <span class="syntax-fn">launch</span> <span class="syntax-punct">=</span> <span class="syntax-kw">async</span> () <span class="syntax-punct">=&gt;</span> {
+  <span class="syntax-kw">const</span> <span class="syntax-fn">res</span> <span class="syntax-punct">=</span> <span class="syntax-kw">await</span> <span class="syntax-fn">fetch</span>(<span class="syntax-str">'/api'</span>)<span class="syntax-punct">;</span>
+  <span class="syntax-kw">return</span> <span class="syntax-fn">res</span>.<span class="syntax-fn">json</span>()<span class="syntax-punct">;</span>
+}<span class="syntax-punct">;</span></code></pre>`,
+      x: 48, y: 48, anim: 'floating-anim-2', delay: 2.5, depth: 0.04
+    }
+  ],
+
+  init() {
+    this.container = DOM.floatingCodeContainer || document.getElementById('floating-code-container');
+    if (!this.container) return;
+
+    this.renderElements();
+    this.bindMouseParallax();
+  },
+
+  renderElements() {
+    this.container.innerHTML = '';
+    this.items = [];
+
+    this.codeSnippets.forEach((snippet) => {
+      // 1. 외측 위치 및 마우스 패럴랙스 래퍼
+      const outer = document.createElement('div');
+      outer.className = 'floating-code-item';
+      outer.style.left = `${snippet.x}%`;
+      outer.style.top = `${snippet.y}%`;
+
+      // 2. 내측 부유 키프레임 애니메이션 및 디자인 요소
+      const inner = document.createElement('div');
+      inner.className = `floating-code-inner ${snippet.anim} ${snippet.type === 'chip' ? `code-chip lang-${snippet.lang}` : 'code-card'}`;
+      inner.style.animationDelay = `${snippet.delay}s`;
+      inner.innerHTML = snippet.html;
+
+      outer.appendChild(inner);
+      this.container.appendChild(outer);
+
+      this.items.push({
+        element: outer,
+        depth: snippet.depth || 0.04,
+        x: snippet.x,
+        y: snippet.y
+      });
+    });
+  },
+
+  bindMouseParallax() {
+    window.addEventListener('mousemove', (e) => {
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      // 정규화 좌표 (-1 ~ 1)
+      this.targetOffset.x = (e.clientX - centerX) / centerX;
+      this.targetOffset.y = (e.clientY - centerY) / centerY;
+    });
+
+    const updateParallax = () => {
+      // 선형 보간(lerp)으로 매우 부드러운 패럴랙스 댐핑 처리
+      this.currentOffset.x += (this.targetOffset.x - this.currentOffset.x) * 0.05;
+      this.currentOffset.y += (this.targetOffset.y - this.currentOffset.y) * 0.05;
+
+      const offX = this.currentOffset.x * 28;
+      const offY = this.currentOffset.y * 28;
+
+      this.items.forEach(item => {
+        const itemX = offX * (item.depth * 25);
+        const itemY = offY * (item.depth * 25);
+        // CSS 키프레임 애니메이션과의 충돌을 방지하기 위해 CSS 변수 또는 transform3d 적용
+        item.element.style.transform = `translate3d(${-itemX}px, ${-itemY}px, 0)`;
+      });
+
+      requestAnimationFrame(updateParallax);
+    };
+
+    requestAnimationFrame(updateParallax);
+  }
+};
 
 /* ==========================================================================
    11. 애플리케이션 초기화 (Init Runner)
@@ -990,12 +1519,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 각 모듈 초기화 실행
   ThemeManager.init();
+  SmoothScrollManager.init();
   NavigationManager.init();
   ScrollAnimationManager.init();
   TypingEffectManager.init();
   ProjectsManager.init();
   ContactFormManager.init();
   ParticleManager.init();
+  FloatingCodeManager.init();
 
-  console.log('🚀 Portfolio App successfully initialized with Vanilla JS & Canvas Particles!');
+  console.log('🚀 Portfolio App successfully initialized with Canvas Particles & Floating Code Background!');
 });
