@@ -959,6 +959,16 @@ const ContactFormManager = {
 
     // 유효성 통과 시 성공 처리
     const senderName = DOM.nameInput.value.trim();
+    const senderEmail = DOM.emailInput.value.trim();
+    const message = DOM.messageInput.value.trim();
+
+    // mailto 링크 생성 및 실행
+    const targetEmail = 'dev.frontend@example.com';
+    const subject = encodeURIComponent(`[문의사항] ${senderName}님으로부터`);
+    const body = encodeURIComponent(`이름: ${senderName}\n답변받을 이메일: ${senderEmail}\n\n내용:\n${message}`);
+    
+    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+
     this.showAlert(`🎉 감사합니다, ${senderName}님! 메시지가 성공적으로 전송되었습니다. 검토 후 신속히 회신드리겠습니다.`, 'success');
 
     // 폼 입력 초기화
