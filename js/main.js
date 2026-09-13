@@ -962,23 +962,40 @@ const ContactFormManager = {
     const senderEmail = DOM.emailInput.value.trim();
     const message = DOM.messageInput.value.trim();
 
-    // mailto 링크 생성 및 실행
-    const targetEmail = 'dev.frontend@example.com';
-    const subject = encodeURIComponent(`[문의사항] ${senderName}님으로부터`);
-    const body = encodeURIComponent(`이름: ${senderName}\n답변받을 이메일: ${senderEmail}\n\n내용:\n${message}`);
-    
-    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+    // 실제 메일 전송 로직 (Formspree API 사용)
+    const formspreeEndpoint = 'https://formspree.io/f/mrpgwbna';
 
-    this.showAlert(`🎉 감사합니다, ${senderName}님! 메시지가 성공적으로 전송되었습니다. 검토 후 신속히 회신드리겠습니다.`, 'success');
-
-    // 폼 입력 초기화
-    DOM.contactForm.reset();
-
-    // 6초 후 알림창 클래스 초기화 (CSS .form-alert 기본 상태인 display: none으로 자동 복귀)
-    setTimeout(() => {
-      DOM.formAlert.classList.remove('success', 'error');
-      DOM.formAlert.textContent = '';
-    }, 6000);
+    fetch(formspreeEndpoint, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: senderName,
+        email: senderEmail,
+        message: message
+      })
+    })
+    .then(response => {
+      if (response.ok) {
+        this.showAlert(`🎉 감사합니다, ${senderName}님! 메시지가 성공적으로 전송되었습니다. 검토 후 신속히 회신드리겠습니다.`, 'success');
+        DOM.contactForm.reset();
+      } else {
+        this.showAlert('🚨 메일 전송에 실패했습니다. Formspree 설정을 확인해주세요.', 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Email send error:', error);
+      this.showAlert('🚨 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
+    })
+    .finally(() => {
+      // 6초 후 알림창 초기화
+      setTimeout(() => {
+        DOM.formAlert.classList.remove('success', 'error');
+        DOM.formAlert.textContent = '';
+      }, 6000);
+    });
   },
 
   /**
